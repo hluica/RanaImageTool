@@ -102,6 +102,9 @@ RanaImageTool setppi -p "C:\Images" --linear
 - [SixLabors.ImageSharp](https://github.com/SixLabors/ImageSharp): 用于图像处理。
 - [Spectre.Console](https://github.com/spectreconsole/spectre.console): 用于命令行界面和参数解析。
 
+## 版本历史
+- v1.4.3: 首个稳定可用版本。
+
 ## 许可证
 
 本项目使用 [MIT 许可证](LICENSE)。
