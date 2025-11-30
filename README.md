@@ -22,6 +22,10 @@ RanaImageTool 是一个基于 .NET 10 的命令行工具，用于处理图片文
 通过 `setppi` 命令为 JPEG 和 PNG 文件设置 PPI（像素每英寸）。支持两种模式：
 - **固定值模式**：将所有文件的 PPI 设置为指定的固定值。在未指定PPI时，默认为 144。
 - **线性模式**：根据图像的宽度线性计算 PPI。在未指定具体模式时，默认为此模式。
+- 在设置 PPI 模式下，某些文件将发生变化：
+  - 图片编码格式与扩展名所暗示的不同时，该图片将被转换格式。
+  - 默认转换目标格式为 PNG，扩展名亦将被纠正为 .png。
+  - 与此同时，JPEG 格式图片的扩展名将被规范为 .jpg。
 
 ## 安装
 
@@ -35,7 +39,8 @@ RanaImageTool 是一个 .NET 全局工具。您可以通过以下步骤安装：
 dotnet pack
 
 # 安装工具
-dotnet tool install --global --add-source ./nupkg RanaImageTool
+dotnet tool install --global --add-source ./nupkg RanaImageTool --version *.*.*
+# 建议您安装时指定版本号，这有助于确保所有文件均被更新。
 ```
 
 ## 使用方法
@@ -80,30 +85,36 @@ RanaImageTool trans -p "C:\Images"
 ```
 
 #### 设置 PPI
-- 固定值模式：
 ```powershell
+# 固定值模式，设置 PPI 为 300
 RanaImageTool setppi -p "C:\Images" --val 300
-```
 
-- 线性模式：
-```powershell
+# 固定值模式，缺省设置为 144
+RanaImageTool setppi -p "C:\Images" --val
+
+# 线性模式
 RanaImageTool setppi -p "C:\Images" --linear
+
+# 不指定任何模式，缺省使用线性模式
+RanaImageTool setppi -p "C:\Images"
 ```
 
 ## 开发
 
 ### 项目结构
 
-- **Program.cs**: 包含命令行入口和命令配置。
 - **RanaImageTool.csproj**: 项目文件，定义了依赖项和目标框架。
+- **Program.cs**: 包含命令行入口和命令配置。
 
 ### 依赖项
 
 - [SixLabors.ImageSharp](https://github.com/SixLabors/ImageSharp): 用于图像处理。
+- [ExifLibNet](https://github.com/oozcitak/exiflibrary): 用于读取和修改 JPEG 图像的 PPI 数据。
 - [Spectre.Console](https://github.com/spectreconsole/spectre.console): 用于命令行界面和参数解析。
 
 ## 版本历史
-- v1.4.3: 首个稳定可用版本。
+- v1.6.0 | 12-01-25: 更新 setppi 模式的处理逻辑，改用 ExifLibNet 以减少重编码次数；增加格式修正能力。
+- v1.4.3 | 11-30-25: 首个稳定可用版本。
 
 ## 许可证
 

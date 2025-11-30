@@ -1,4 +1,5 @@
-﻿using SixLabors.ImageSharp;
+﻿using ExifLibrary;
+using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats;
 using SixLabors.ImageSharp.Formats.Png;
 using SixLabors.ImageSharp.Metadata;
@@ -122,13 +123,18 @@ public class ScanCommand : Command<BaseSettings>
 
         AnsiConsole.MarkupLine($"Scanning: [blue]{dir}[/]");
 
-        // 递归查找文件
-        var jpgCount = Directory.EnumerateFiles(dir, "*.*", SearchOption.AllDirectories)
-            .Count(s => s.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) || s.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase));
+        // 一次遍历，递归查找文件
+        var stats = Directory.EnumerateFiles(dir, "*.*", SearchOption.AllDirectories)
+            .Select(f => Path.GetExtension(f).ToLowerInvariant())
+            .GroupBy(ext => ext)
+            .ToDictionary(g => g.Key, g => g.Count());
 
-        var pngCount = Directory.EnumerateFiles(dir, "*.png", SearchOption.AllDirectories).Count();
+        // 安全获取数据
+        int GetCount(string[] exts) => exts.Sum(e => stats.GetValueOrDefault(e, 0));
 
-        var webpCount = Directory.EnumerateFiles(dir, "*.webp", SearchOption.AllDirectories).Count();
+        var jpgCount = GetCount([".jpg", ".jpeg"]);
+        var pngCount = GetCount([".png"]);
+        var webpCount = GetCount([".webp"]);
 
         // 创建表格
         var table = new Table();
@@ -222,6 +228,7 @@ public static class ProcessorEngine
         }
 
         // i. 扫描文件
+        // 程序每次运行后都将导致图片格式与数量变动，故此处需在每次运行前重新扫描文件
         AnsiConsole.MarkupLine($"[gray]Scanning files in {dir}...[/]");
         var files = Directory.EnumerateFiles(dir, "*.*", SearchOption.AllDirectories)
             .Where(f => extensions.Any(ext => f.EndsWith(ext, StringComparison.OrdinalIgnoreCase)))
@@ -336,33 +343,85 @@ public static class ProcessorEngine
     {
         string tempPath = inputPath + $".tmp_{Guid.NewGuid():N}";
 
-        // 加载图片
-        // 使用文件流以支持 IImageFormat 输出
+        ImageInfo imageInfo;
+        IImageFormat format;
+
+        // i. 读取元数据与格式侦测
         using (var fs = File.OpenRead(inputPath))
         {
-            IImageFormat format = Image.DetectFormat(fs);
+            imageInfo = Image.Identify(fs);
             fs.Position = 0;
+            format = Image.DetectFormat(fs);
+        }
 
-            using var image = Image.Load(fs);
+        // ii. 确定真实的编码格式及目标路径
+        // 如果格式名为 JPEG，则视为 JPEG 处理，否则后续统一转为 PNG
+        // 虽然本方法主要用于修改图片 PPI，但文件自身出错的情况必须纳入考虑
+        bool isJpeg = format.Name.Equals("JPEG", StringComparison.OrdinalIgnoreCase);
 
-            int targetPpi = useLinear ? (int)(image.Width / 10.0) : fixedPpi;
+        // 强制修正扩展名：JPEG -> .jpg, 其他 -> .png
+        // 根据代码逻辑，错误的扩展名无非两种情况：其他格式装进 .jpeg，或装进 .png
+        // 两种情况的图片都会被转换为 PNG 且扩展名改为 .png，前者会触发文件删除，后者则自动覆盖原文件。
+        string correctExtension = isJpeg ? ".jpg" : ".png";
+        string finalPath = Path.ChangeExtension(inputPath, correctExtension);
 
-            // 只有修改前后数值相差足够大，才有必要执行。避免无效 I/O 
-            if (Math.Abs(image.Metadata.HorizontalResolution - targetPpi) < 5)
-            {
-                return;
-            }
+        // iii. 计算目标 PPI
+        int targetPpi = useLinear ? (int)(imageInfo.Width / 10.0) : fixedPpi;
 
-            // 修改元数据
+        // iv. 根据格式分流处理
+        if (isJpeg)
+        {
+            // JPEG - 使用 ExifLibNet (无损修改元数据)
+            var exifFile = ImageFile.FromFile(inputPath);
+
+            // 使用 Remove() 和 Add() 手动更新分辨率属性
+            exifFile.Properties.Remove(ExifTag.XResolution);
+            exifFile.Properties.Add(new ExifURational(ExifTag.XResolution, (uint)targetPpi, 1));
+
+            exifFile.Properties.Remove(ExifTag.YResolution);
+            exifFile.Properties.Add(new ExifURational(ExifTag.YResolution, (uint)targetPpi, 1));
+
+            // 使用 Set() 自动更新分辨率单位
+            exifFile.Properties.Set(ExifTag.ResolutionUnit, ResolutionUnit.Inches);
+
+            exifFile.Save(tempPath);
+        }
+        else
+        {
+            // 非 JPEG (PNG, WebP 等) - 使用 ImageSharp 转码为 PNG
+            using var image = Image.Load(inputPath);
+
             image.Metadata.HorizontalResolution = targetPpi;
             image.Metadata.VerticalResolution = targetPpi;
             image.Metadata.ResolutionUnits = PixelResolutionUnit.PixelsPerInch;
 
-            // 使用原格式保存
-            image.Save(tempPath, image.Configuration.ImageFormatsManager.GetEncoder(format));
+            // 强制使用 PngEncoder
+            var encoder = new PngEncoder();
+
+            image.Save(tempPath, encoder);
         }
 
-        // 覆盖源文件
-        File.Move(tempPath, inputPath, overwrite: true);
+        // v. 原子化提交与清理
+        try
+        {
+            // 将临时文件移动为最终目标文件 (如果 finalPath 已存在则覆盖)
+            File.Move(tempPath, finalPath, overwrite: true);
+
+            // 检查是否发生了路径变更（即扩展名改变）且生成了新文件 (a.png)，则删除旧文件 (a.jpg)
+            if (!finalPath.Equals(inputPath, StringComparison.OrdinalIgnoreCase) & File.Exists(inputPath))
+            {
+                File.Delete(inputPath);
+            }
+        }
+        catch
+        {
+            // 只有在 Move 失败时才需要尝试清理临时文件
+            // 如果 Move 成功但 Delete 失败，临时文件已经没了，无需操作
+            if (File.Exists(tempPath))
+            {
+                File.Delete(tempPath);
+            }
+            throw; // 重新抛出异常供上层记录
+        }
     }
 }
