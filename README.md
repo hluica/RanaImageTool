@@ -32,7 +32,8 @@ RanaImageTool 是一个基于 .NET 10 的命令行工具，用于处理图片文
 RanaImageTool 是一个 .NET 全局工具。您可以通过以下步骤安装：
 
 1. 确保已安装 .NET 10 SDK。
-2. 在项目目录下运行以下命令：
+2. `git clone`或其他方法将项目文件下载到本地。
+3. 在项目目录下运行以下命令：
 
 ```powershell
 # 打包工具
@@ -40,7 +41,7 @@ dotnet pack
 
 # 安装工具
 dotnet tool install --global --add-source ./nupkg RanaImageTool --version *.*.*
-# 建议您安装时指定版本号，这有助于确保所有文件均被更新。
+# 建议在安装时指定版本号（从项目文件查询），这有助于确保所有文件均被更新。
 ```
 
 ## 使用方法
@@ -55,10 +56,10 @@ RanaImageTool [command] [options]
 
 | 命令   | 描述 |
 |--------|------|
-| `scan` | 扫描目录并计数图片文件。 |
 | `webp` | 将 WebP 文件转换为 PNG 文件，并删除原始文件。 |
-| `trans`| 将 JPEG 文件转换为 PNG 文件，并删除原始文件。 |
 | `setppi` | 为 JPEG/PNG 文件设置 PPI。 |
+| `convert`| 将 JPEG 文件转换为 PNG 文件，并删除原始文件。 |
+| `scan` | 扫描目录并计数图片文件。 |
 
 ### 参数
 - 公共参数
@@ -81,7 +82,7 @@ RanaImageTool webp -p "C:\Images"
 
 #### 将 JPEG 转换为 PNG
 ```powershell
-RanaImageTool trans -p "C:\Images"
+RanaImageTool convert -p "C:\Images"
 ```
 
 #### 设置 PPI
@@ -113,7 +114,8 @@ RanaImageTool setppi -p "C:\Images"
 - [Spectre.Console](https://github.com/spectreconsole/spectre.console): 用于命令行界面和参数解析。
 
 ## 版本历史
-- v1.6.0 | 12-01-25: 更新 setppi 模式的处理逻辑，改用 ExifLibNet 以减少重编码次数；增加格式修正能力。
+- v2.0.2 | 12-03-25: 将命令 `trans` 替换为 `convert` 以提高可读性；更改 `setppi` 模式的处理逻辑，避免重复读取文件。
+- v1.6.0 | 12-01-25: 更新 `setppi` 模式的处理逻辑，改用 ExifLibNet 以减少重编码次数；增加格式修正能力。
 - v1.4.3 | 11-30-25: 首个稳定可用版本。
 
 ## 许可证

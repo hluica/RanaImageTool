@@ -1,6 +1,5 @@
 ﻿using ExifLibrary;
 using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Formats;
 using SixLabors.ImageSharp.Formats.Png;
 using SixLabors.ImageSharp.Metadata;
 using Spectre.Console;
@@ -31,17 +30,17 @@ public static class Program
         {
             config.SetApplicationName("RanaImageTool");
 
-            config.AddCommand<ScanCommand>("scan")
-                .WithDescription("扫描目录并计数图片文件。");
-
             config.AddCommand<WebpToPngCommand>("webp")
                 .WithDescription("将 WebP 文件转换为 PNG 文件，并删除原始文件。");
 
-            config.AddCommand<JpgToPngCommand>("trans")
+            config.AddCommand<SetPpiCommand>("setppi")
+                .WithDescription("为 JPEG/PNG 文件设置 PPI。同时转换未预期的编码格式");
+
+            config.AddCommand<JpgToPngCommand>("convert")
                 .WithDescription("将 JPEG 文件转换为 PNG 文件，并删除原始文件。");
 
-            config.AddCommand<SetPpiCommand>("setppi")
-                .WithDescription("为 JPEG/PNG 文件设置 PPI。");
+            config.AddCommand<ScanCommand>("scan")
+                .WithDescription("扫描目录并计数图片文件。");
 
             config.SetApplicationVersion(GetAppVersion());
         });
@@ -340,7 +339,7 @@ public static class ProcessorEngine
         File.Move(tempPath, finalPath, overwrite: true);
 
         // 再次验证，避免误删文件
-        if (!string.Equals(inputPath, finalPath, StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(inputPath, finalPath, StringComparison.OrdinalIgnoreCase) && File.Exists(inputPath))
         {
             // iii. 删除源文件
             File.Delete(inputPath);
@@ -354,35 +353,50 @@ public static class ProcessorEngine
     {
         string tempPath = inputPath + $".tmp_{Guid.NewGuid():N}";
 
-        ImageInfo imageInfo;
-        IImageFormat format;
+        // 将关键变量定义在外部作用域，以便在流关闭后继续使用
+        bool isJpeg = false;
+        int targetPpi = 0;
+        string? finalPath = null;
 
-        // i. 读取元数据与格式侦测
+        // 阶段一：读取元数据、计算参数以及处理非 JPEG 格式 (使用流)
         using (var fs = File.OpenRead(inputPath))
         {
-            imageInfo = Image.Identify(fs);
+            // 1. 侦测格式与元数据
+            var imageInfo = Image.Identify(fs);
+            // 重置流位置供 DetectFormat() 使用
             fs.Position = 0;
-            format = Image.DetectFormat(fs);
+            var format = Image.DetectFormat(fs);
+
+            // 2. 确定逻辑分支参数
+            isJpeg = format.Name.Equals("JPEG", StringComparison.OrdinalIgnoreCase);
+            targetPpi = useLinear ? (int)(imageInfo.Width / 10.0) : fixedPpi;
+
+            // 确定最终路径
+            string correctExtension = isJpeg ? ".jpg" : ".png";
+            finalPath = Path.ChangeExtension(inputPath, correctExtension);
+
+            // 3. 非 JPEG 格式优化：直接复用当前文件流进行转码
+            if (!isJpeg)
+            {
+                // 再次重置流位置供 Load() 使用
+                fs.Position = 0;
+                using var image = Image.Load(fs);
+
+                image.Metadata.HorizontalResolution = targetPpi;
+                image.Metadata.VerticalResolution = targetPpi;
+                image.Metadata.ResolutionUnits = PixelResolutionUnit.PixelsPerInch;
+
+                // 非 JPEG 直接转换为 PNG
+                var encoder = new PngEncoder();
+
+                image.Save(tempPath, encoder);
+            }
         }
 
-        // ii. 确定真实的编码格式及目标路径
-        // 如果格式名为 JPEG，则视为 JPEG 处理，否则后续统一转为 PNG
-        // 虽然本方法主要用于修改图片 PPI，但文件自身出错的情况必须纳入考虑
-        bool isJpeg = format.Name.Equals("JPEG", StringComparison.OrdinalIgnoreCase);
-
-        // 强制修正扩展名：JPEG -> .jpg, 其他 -> .png
-        // 根据代码逻辑，错误的扩展名无非两种情况：其他格式装进 .jpeg，或装进 .png
-        // 两种情况的图片都会被转换为 PNG 且扩展名改为 .png，前者会触发文件删除，后者则自动覆盖原文件。
-        string correctExtension = isJpeg ? ".jpg" : ".png";
-        string finalPath = Path.ChangeExtension(inputPath, correctExtension);
-
-        // iii. 计算目标 PPI
-        int targetPpi = useLinear ? (int)(imageInfo.Width / 10.0) : fixedPpi;
-
-        // iv. 根据格式分流处理
+        // 阶段二：处理 JPEG 格式 (使用文件路径)
+        // 此时 fs 已 Dispose，文件句柄已释放，可使用路径访问
         if (isJpeg)
         {
-            // JPEG - 使用 ExifLibNet (无损修改元数据)
             var exifFile = ImageFile.FromFile(inputPath);
 
             // 使用 Remove() 和 Add() 手动更新分辨率属性
@@ -397,42 +411,28 @@ public static class ProcessorEngine
 
             exifFile.Save(tempPath);
         }
-        else
-        {
-            // 非 JPEG (PNG, WebP 等) - 使用 ImageSharp 转码为 PNG
-            using var image = Image.Load(inputPath);
 
-            image.Metadata.HorizontalResolution = targetPpi;
-            image.Metadata.VerticalResolution = targetPpi;
-            image.Metadata.ResolutionUnits = PixelResolutionUnit.PixelsPerInch;
-
-            // 强制使用 PngEncoder
-            var encoder = new PngEncoder();
-
-            image.Save(tempPath, encoder);
-        }
-
-        // v. 原子化提交与清理
+        // 阶段三：原子化提交与清理
         try
         {
-            // 将临时文件移动为最终目标文件 (如果 finalPath 已存在则覆盖)
+            // 此时 tempPath 必然已生成（无论走哪个分支）
             File.Move(tempPath, finalPath, overwrite: true);
 
-            // 检查是否发生了路径变更（即扩展名改变）且生成了新文件 (a.png)，则删除旧文件 (a.jpg)
-            if (!finalPath.Equals(inputPath, StringComparison.OrdinalIgnoreCase) & File.Exists(inputPath))
+            // 清理旧扩展名的文件（如果它未被覆盖）
+            if (!finalPath.Equals(inputPath, StringComparison.OrdinalIgnoreCase) && File.Exists(inputPath))
             {
                 File.Delete(inputPath);
             }
         }
         catch
         {
-            // 只有在 Move 失败时才需要尝试清理临时文件
-            // 如果 Move 成功但 Delete 失败，临时文件已经没了，无需操作
+            // 在 Move 失败时尝试清理临时文件
             if (File.Exists(tempPath))
             {
                 File.Delete(tempPath);
             }
-            throw; // 重新抛出异常供上层记录
+            // 重新抛出异常以供上层捕获
+            throw;
         }
     }
 }
