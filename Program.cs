@@ -129,25 +129,36 @@ public class ScanCommand : Command<BaseSettings>
             .GroupBy(ext => ext)
             .ToDictionary(g => g.Key, g => g.Count());
 
-        // 安全获取数据
+        // 获取数据辅助方法
         int GetCount(string[] exts) => exts.Sum(e => stats.GetValueOrDefault(e, 0));
 
+        // 获取数据
         var jpgCount = GetCount([".jpg", ".jpeg"]);
         var pngCount = GetCount([".png"]);
         var webpCount = GetCount([".webp"]);
 
-        // 创建表格
+        var total = jpgCount + pngCount + webpCount;
+
+        // 定义表格
         var table = new Table();
-        table.AddColumn("[bold green]Format[/]");
-        table.AddColumn("[bold green]Count[/]");
+
+        // 定义列
+        // 第一列：表头 "Format" 绿色加粗；页脚 "Total" 白色加粗
+        table.AddColumn(new TableColumn("[bold green]Format[/]")
+            .Footer("[bold]Total[/]"));
+
+        // 第二列：表头 "Count" 绿色加粗；页脚白色加粗；右对齐
+        table.AddColumn(new TableColumn("[bold green]Count[/]")
+            .RightAligned()
+            .Footer($"[bold]{total}[/]"));
+
+        // 定义行
         table.AddRow("JPEG", jpgCount.ToString());
         table.AddRow("PNG", pngCount.ToString());
         table.AddRow("WebP", webpCount.ToString());
 
-        // 设置表格格式
+        // 定义样式
         table.Border(TableBorder.Simple);
-        table.Columns[1].Alignment = Justify.Right;
-        table.Columns[1].RightAligned();
 
         // 绘制表格
         AnsiConsole.Write(table);
