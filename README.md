@@ -114,8 +114,8 @@ RanaImageTool setppi -p "C:\Images"
 - [Spectre.Console](https://github.com/spectreconsole/spectre.console): 用于命令行界面和参数解析。
 
 ## 版本历史
-- v2.0.2 | 12-03-25: 将命令 `trans` 替换为 `convert` 以提高可读性；更改 `setppi` 模式的处理逻辑，避免重复读取文件。
-- v1.6.0 | 12-01-25: 更新 `setppi` 模式的处理逻辑，改用 ExifLibNet 以减少重编码次数；增加格式修正能力。
+- v1.6.2 | 12-02-25: 更新 scan 模式下结果展示表格的生成逻辑和显示内容。
+- v1.6.0 | 12-01-25: 更新 setppi 模式的处理逻辑，改用 ExifLibNet 以减少重编码次数；增加格式修正能力。
 - v1.4.3 | 11-30-25: 首个稳定可用版本。
 
 ## 许可证
