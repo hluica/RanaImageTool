@@ -233,12 +233,13 @@ public static class ProcessorEngine
 
         if (!Directory.Exists(dir))
         {
-            AnsiConsole.MarkupLine($"[red]Error:[/] Directory not found: {dir}");
+            AnsiConsole.MarkupLine($"[red][bold]Error![/] Directory not found: {dir}[/]");
             return Task.FromResult(-1);
         }
 
         // i. 扫描文件
         // 程序每次运行后都将导致图片格式与数量变动，故此处需在每次运行前重新扫描文件
+        AnsiConsole.WriteLine();
         AnsiConsole.MarkupLine($"[gray]Scanning files in {dir}...[/]");
         var files = Directory.EnumerateFiles(dir, "*.*", SearchOption.AllDirectories)
             .Where(f => extensions.Any(ext => f.EndsWith(ext, StringComparison.OrdinalIgnoreCase)))
@@ -293,21 +294,22 @@ public static class ProcessorEngine
             });
 
         sw.Stop();
+        string ts = sw.Elapsed.ToString(sw.Elapsed.Hours >= 1 ? @"h\:mm\:ss\.ff" : @"m\:ss\.ff");
 
         // iv. 结果汇报
         if (errors.IsEmpty)
         {
-            AnsiConsole.MarkupLine($"[green]Success![/] Processed {files.Count} files in [bold]{sw.Elapsed.TotalSeconds:F2}s[/].");
+            AnsiConsole.MarkupLine($"[green]Success![/] Processed {files.Count} files in time: [bold]{ts}[/].");
             return Task.FromResult(0);
         }
         else
         {
-            AnsiConsole.MarkupLine($"[yellow]Completed with {errors.Count} errors[/] in [bold]{sw.Elapsed.TotalSeconds:F2}s[/].");
+            AnsiConsole.MarkupLine($"[yellow]Completed with {errors.Count} errors[/] in time: [bold]{ts}[/].");
             AnsiConsole.Write(new Rule("[red]Failures[/]"));
             foreach (var err in errors)
             {
-                AnsiConsole.MarkupLine($"[red]File[/]: {Path.GetFileName(err.File)}");
-                AnsiConsole.MarkupLine($"[gray]Error[/]: {err.Message}");
+                AnsiConsole.MarkupLine($"[gray bold]File[/]: {Path.GetFileName(err.File)}");
+                AnsiConsole.MarkupLine($"[red bold]Error[/]: {err.Message}");
                 AnsiConsole.WriteLine();
             }
             return Task.FromResult(1);
