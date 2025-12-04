@@ -120,7 +120,7 @@ public class ScanCommand : Command<BaseSettings>
             return -1;
         }
 
-        AnsiConsole.MarkupLine($"Scanning: [blue]{dir}[/]");
+        AnsiConsole.MarkupLine($"Scanning: [blue underline]{Markup.Escape(dir)}[/]");
 
         // 一次遍历，递归查找文件
         var stats = Directory.EnumerateFiles(dir, "*.*", SearchOption.AllDirectories)
@@ -173,7 +173,7 @@ public class WebpToPngCommand : AsyncCommand<BaseSettings>
         return await ProcessorEngine.RunBatchAsync(
             settings.Path,
             [".webp"],
-            "Converting WebP to PNG",
+            "[webp] Converting WebP to PNG",
             (file) => ProcessorEngine.ConvertFormat(file, ".png")
         );
     }
@@ -187,7 +187,7 @@ public class JpgToPngCommand : AsyncCommand<BaseSettings>
         return await ProcessorEngine.RunBatchAsync(
             settings.Path,
             [".jpg", ".jpeg"],
-            "Converting JPG to PNG (Trans Mode)",
+            "[convert] Converting JPG to PNG",
             (file) => ProcessorEngine.ConvertFormat(file, ".png")
         );
     }
@@ -207,7 +207,7 @@ public class SetPpiCommand : AsyncCommand<PpiSettings>
             effectivePpi = settings.PpiValue.Value == 0 ? 144 : settings.PpiValue.Value;
         }
 
-        string desc = settings.UseLinear ? "Setting PPI (Linear)" : $"Setting PPI (Fixed: {effectivePpi})";
+        string desc = settings.UseLinear ? "[setppi] Linear Mode" : $"[settppi] Fixed mode, val={effectivePpi})";
 
         return await ProcessorEngine.RunBatchAsync(
             settings.Path,
@@ -240,7 +240,7 @@ public static class ProcessorEngine
         // i. 扫描文件
         // 程序每次运行后都将导致图片格式与数量变动，故此处需在每次运行前重新扫描文件
         AnsiConsole.WriteLine();
-        AnsiConsole.MarkupLine($"[gray]Scanning files in {dir}...[/]");
+        AnsiConsole.MarkupLine($"[gray]Scanning files in [underline]{Markup.Escape(dir)}...[/][/]");
         var files = Directory.EnumerateFiles(dir, "*.*", SearchOption.AllDirectories)
             .Where(f => extensions.Any(ext => f.EndsWith(ext, StringComparison.OrdinalIgnoreCase)))
             .ToList();
@@ -254,7 +254,7 @@ public static class ProcessorEngine
         AnsiConsole.MarkupLine($"Found [green]{files.Count}[/] files.");
 
         // 用于收集错误
-        var errors = new ConcurrentBag<(string File, string Message)>();
+        var errors = new ConcurrentBag<(string file, Exception exception)>();
 
         // ii. 启动进度条 UI
         AnsiConsole.Progress()
@@ -268,7 +268,7 @@ public static class ProcessorEngine
             ])
             .Start(ctx =>
             {
-                var task = ctx.AddTask($"[green]{activityName}[/]", maxValue: files.Count);
+                var task = ctx.AddTask($"[green]{Markup.Escape(activityName)}[/]", maxValue: files.Count);
 
                 // iii. 并行执行 (限制为 CPU 核心数)
                 var parallelOptions = new ParallelOptions
@@ -284,7 +284,7 @@ public static class ProcessorEngine
                     }
                     catch (Exception ex)
                     {
-                        errors.Add((file, ex.Message));
+                        errors.Add((file, ex));
                     }
                     finally
                     {
@@ -308,8 +308,8 @@ public static class ProcessorEngine
             AnsiConsole.Write(new Rule("[red]Failures[/]"));
             foreach (var err in errors)
             {
-                AnsiConsole.MarkupLine($"[gray bold]File[/]: {Path.GetFileName(err.File)}");
-                AnsiConsole.MarkupLine($"[red bold]Error[/]: {err.Message}");
+                AnsiConsole.MarkupLine($"[gray bold]File:[/] [underline]{Markup.Escape(Path.GetFileName(err.file))}[/]");
+                AnsiConsole.WriteException(err.exception, ExceptionFormats.ShortenEverything);
                 AnsiConsole.WriteLine();
             }
             return Task.FromResult(1);
