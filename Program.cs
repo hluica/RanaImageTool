@@ -120,7 +120,7 @@ public class ScanCommand : Command<BaseSettings>
             return -1;
         }
 
-        AnsiConsole.MarkupLine($"Scanning: [blue underline]{Markup.Escape(dir)}[/]");
+        AnsiConsole.MarkupLine($"[grey]Scanning: [/][blue underline]{Markup.Escape(dir)}[/]");
 
         // 一次遍历，递归查找文件
         var stats = Directory.EnumerateFiles(dir, "*.*", SearchOption.AllDirectories)
@@ -173,7 +173,7 @@ public class WebpToPngCommand : AsyncCommand<BaseSettings>
         return await ProcessorEngine.RunBatchAsync(
             settings.Path,
             [".webp"],
-            "[webp] Converting WebP to PNG",
+            "[webp] From WebP to PNG",
             (file) => ProcessorEngine.ConvertFormat(file, ".png")
         );
     }
@@ -187,7 +187,7 @@ public class JpgToPngCommand : AsyncCommand<BaseSettings>
         return await ProcessorEngine.RunBatchAsync(
             settings.Path,
             [".jpg", ".jpeg"],
-            "[convert] Converting JPG to PNG",
+            "[convert] From JPG to PNG",
             (file) => ProcessorEngine.ConvertFormat(file, ".png")
         );
     }
@@ -233,14 +233,14 @@ public static class ProcessorEngine
 
         if (!Directory.Exists(dir))
         {
-            AnsiConsole.MarkupLine($"[red][bold]Error![/] Directory not found: {dir}[/]");
+            AnsiConsole.MarkupLine($"[red][bold]Error![/] Directory not found: [underline]{dir}[/][/]");
             return Task.FromResult(-1);
         }
 
         // i. 扫描文件
         // 程序每次运行后都将导致图片格式与数量变动，故此处需在每次运行前重新扫描文件
         AnsiConsole.WriteLine();
-        AnsiConsole.MarkupLine($"[gray]Scanning files in [underline]{Markup.Escape(dir)}...[/][/]");
+        AnsiConsole.MarkupLine($"[grey]Scanning: [/][blue underline]{Markup.Escape(dir)}[/]");
         var files = Directory.EnumerateFiles(dir, "*.*", SearchOption.AllDirectories)
             .Where(f => extensions.Any(ext => f.EndsWith(ext, StringComparison.OrdinalIgnoreCase)))
             .ToList();

@@ -114,6 +114,7 @@ RanaImageTool setppi -p "C:\Images"
 - [Spectre.Console](https://github.com/spectreconsole/spectre.console): 用于命令行界面和参数解析。
 
 ## 版本历史
+- v2.2.3 | 12-05-25: 继续更新输出信息格式，提升用户体验。
 - v2.2.2 | 12-04-25: 更改几种信息显示方式，修复输出文件路径时可能遇到的问题。
 - v2.1.1 | 12-04-25: 更新运行时间展示方式和几种输出信息的格式。
 - v2.0.2 | 12-03-25: 将命令 `trans` 替换为 `convert` 以提高可读性；更改 setppi 模式的处理逻辑，减少文件打开次数。
