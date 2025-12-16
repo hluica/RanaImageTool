@@ -152,9 +152,9 @@ public class ScanCommand : Command<BaseSettings>
             .Footer($"[bold]{total}[/]"));
 
         // 定义行
-        table.AddRow("JPEG", jpgCount.ToString());
-        table.AddRow("PNG", pngCount.ToString());
-        table.AddRow("WebP", webpCount.ToString());
+        table.AddRow("JPEG", jpgCount.ToString())
+            .AddRow("PNG", pngCount.ToString())
+            .AddRow("WebP", webpCount.ToString());
 
         // 定义样式
         table.Border(TableBorder.Simple);
@@ -306,10 +306,10 @@ public static class ProcessorEngine
         {
             AnsiConsole.MarkupLine($"[yellow]Completed with {errors.Count} errors[/] in time: [bold]{ts}[/].");
             AnsiConsole.Write(new Rule("[red]Failures[/]"));
-            foreach (var err in errors)
+            foreach (var (file, exception) in errors)
             {
-                AnsiConsole.MarkupLine($"[gray bold]File:[/] [underline]{Markup.Escape(Path.GetFileName(err.file))}[/]");
-                AnsiConsole.WriteException(err.exception, ExceptionFormats.ShortenEverything);
+                AnsiConsole.MarkupLine($"[gray bold]File:[/] [underline]{Markup.Escape(Path.GetFileName(file))}[/]");
+                AnsiConsole.WriteException(exception, ExceptionFormats.ShortenEverything);
                 AnsiConsole.WriteLine();
             }
             return Task.FromResult(1);
