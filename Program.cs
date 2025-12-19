@@ -207,7 +207,7 @@ public class SetPpiCommand : AsyncCommand<PpiSettings>
             effectivePpi = settings.PpiValue.Value == 0 ? 144 : settings.PpiValue.Value;
         }
 
-        string desc = settings.UseLinear ? "[setppi] Linear Mode" : $"[settppi] Fixed mode, val={effectivePpi})";
+        string desc = settings.UseLinear ? "[setppi] Linear Mode" : $"[settppi] Fixed mode, val={effectivePpi}";
 
         return await ProcessorEngine.RunBatchAsync(
             settings.Path,
