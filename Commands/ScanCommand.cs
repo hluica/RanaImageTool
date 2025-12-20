@@ -11,7 +11,7 @@ public class ScanCommand : Command<BaseSettings>
         var dir = settings.Path ?? Directory.GetCurrentDirectory();
         if (!Directory.Exists(dir))
         {
-            AnsiConsole.MarkupLine($"[red]Error:[/] Directory not found: {dir}");
+            AnsiConsole.MarkupLine($"[red]Error:[/] Directory not found: {Markup.Escape(dir)}");
             return -1;
         }
 

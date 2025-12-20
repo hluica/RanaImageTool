@@ -14,7 +14,7 @@ public class BatchRunner : IBatchRunner
 
         if (!Directory.Exists(dir))
         {
-            AnsiConsole.MarkupLine($"[red][bold]Error![/] Directory not found: [underline]{dir}[/][/]");
+            AnsiConsole.MarkupLine($"[red][bold]Error![/] Directory not found: [underline]{Markup.Escape(dir)}[/][/]");
             return Task.FromResult(-1);
         }
 
