@@ -1,4 +1,5 @@
 ﻿using RanaImageTool.Settings;
+
 using Spectre.Console;
 using Spectre.Console.Cli;
 

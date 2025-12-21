@@ -11,12 +11,10 @@ public class JpgToPngCommand(IBatchRunner batchRunner, IImageService imageServic
     private readonly IImageService _imageService = imageService;
 
     public override async Task<int> ExecuteAsync(CommandContext context, BaseSettings settings, CancellationToken cancellationToken)
-    {
-        return await _batchRunner.RunBatchAsync(
+        => await _batchRunner.RunBatchAsync(
             settings.Path,
             [".jpg", ".jpeg"],
             "[convert] From JPG to PNG",
             (file) => _imageService.ConvertFormat(file, ".png")
         );
-    }
 }
