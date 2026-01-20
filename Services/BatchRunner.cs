@@ -53,7 +53,7 @@ public class BatchRunner : IBatchRunner
                     MaxDegreeOfParallelism = Environment.ProcessorCount
                 };
 
-                Parallel.ForEach(files, parallelOptions, file =>
+                _ = Parallel.ForEach(files, parallelOptions, file =>
                 {
                     try
                     {

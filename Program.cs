@@ -18,8 +18,9 @@ public static class Program
         var services = new ServiceCollection();
 
         // 2. 注册业务服务
-        services.AddSingleton<IImageService, ImageService>();
-        services.AddSingleton<IBatchRunner, BatchRunner>();
+        _ = services
+            .AddSingleton<IImageService, ImageService>()
+            .AddSingleton<IBatchRunner, BatchRunner>();
 
         // 3. 配置 Spectre.Console.Cli 使用 DI
         var registrar = new TypeRegistrar(services);
@@ -27,20 +28,20 @@ public static class Program
 
         app.Configure(config =>
         {
-            config.SetApplicationName("RanaImageTool");
-            config.SetApplicationVersion(GetAppVersion());
+            _ = config.SetApplicationName("RanaImageTool")
+                .SetApplicationVersion(GetAppVersion());
 
             // 注册命令
-            config.AddCommand<WebpToPngCommand>("webp")
+            _ = config.AddCommand<WebpToPngCommand>("webp")
                 .WithDescription("将 WebP 文件转换为 PNG 文件，并删除原始文件。");
 
-            config.AddCommand<SetPpiCommand>("setppi")
+            _ = config.AddCommand<SetPpiCommand>("setppi")
                 .WithDescription("为 JPEG/PNG 文件设置 PPI。同时转换未预期的编码格式");
 
-            config.AddCommand<JpgToPngCommand>("convert")
+            _ = config.AddCommand<JpgToPngCommand>("convert")
                 .WithDescription("将 JPEG 文件转换为 PNG 文件，并删除原始文件。");
 
-            config.AddCommand<ScanCommand>("scan")
+            _ = config.AddCommand<ScanCommand>("scan")
                 .WithDescription("扫描目录并计数图片文件。");
         });
 
@@ -50,7 +51,7 @@ public static class Program
     private static string GetAppVersion()
     {
         var assembly = Assembly.GetExecutingAssembly();
-        var version = assembly
+        string? version = assembly
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
             .InformationalVersion;
         return !string.IsNullOrWhiteSpace(version) ? version : "unknown";

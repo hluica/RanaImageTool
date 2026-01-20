@@ -14,9 +14,7 @@ public class SetPpiCommand(IBatchRunner batchRunner, IImageService imageService)
     {
         int effectivePpi = 144;
         if (settings.PpiValue.IsSet)
-        {
             effectivePpi = settings.PpiValue.Value == 0 ? 144 : settings.PpiValue.Value;
-        }
 
         string desc = settings.UseLinear ? "[setppi] Linear Mode" : $"[setppi] Fixed mode, val={effectivePpi}";
 

@@ -20,15 +20,11 @@ public class PpiSettings : BaseSettings
     {
         // 1. 冲突检查
         if (UseLinear && PpiValue.IsSet)
-        {
             return ValidationResult.Error("选项 '--linear' 和 '--val' 不能同时使用。请仅指定其中一个。");
-        }
 
         // 2. 默认回退逻辑
         if (!UseLinear && !PpiValue.IsSet)
-        {
             UseLinear = true;
-        }
 
         return ValidationResult.Success();
     }

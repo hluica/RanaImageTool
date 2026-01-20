@@ -31,8 +31,6 @@ public sealed class TypeResolver(IServiceProvider provider) : ITypeResolver, IDi
     public void Dispose()
     {
         if (_provider is IDisposable disposable)
-        {
             disposable.Dispose();
-        }
     }
 }

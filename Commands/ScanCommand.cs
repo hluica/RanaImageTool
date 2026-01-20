@@ -9,7 +9,7 @@ public class ScanCommand : Command<BaseSettings>
 {
     public override int Execute(CommandContext context, BaseSettings settings, CancellationToken cancellationToken)
     {
-        var dir = settings.Path ?? Directory.GetCurrentDirectory();
+        string dir = settings.Path ?? Directory.GetCurrentDirectory();
         if (!Directory.Exists(dir))
         {
             AnsiConsole.MarkupLine($"[red]Error:[/] Directory not found: {Markup.Escape(dir)}");
@@ -18,7 +18,6 @@ public class ScanCommand : Command<BaseSettings>
 
         AnsiConsole.MarkupLine($"[grey]Scanning: [/][blue underline]{Markup.Escape(dir)}[/]");
 
-        // 这里的逻辑比较轻量且只用于展示，可以直接写在 Command 里。
         var stats = Directory.EnumerateFiles(dir, "*.*", SearchOption.AllDirectories)
             .Select(f => Path.GetExtension(f).ToLowerInvariant())
             .GroupBy(ext => ext)
@@ -26,20 +25,20 @@ public class ScanCommand : Command<BaseSettings>
 
         int GetCount(string[] exts) => exts.Sum(e => stats.GetValueOrDefault(e, 0));
 
-        var jpgCount = GetCount([".jpg", ".jpeg"]);
-        var pngCount = GetCount([".png"]);
-        var webpCount = GetCount([".webp"]);
-        var total = jpgCount + pngCount + webpCount;
+        int jpgCount = GetCount([".jpg", ".jpeg"]);
+        int pngCount = GetCount([".png"]);
+        int webpCount = GetCount([".webp"]);
+        int total = jpgCount + pngCount + webpCount;
 
         var table = new Table();
-        table.AddColumn(new TableColumn("[bold green]Format[/]").Footer("[bold]Total[/]"));
-        table.AddColumn(new TableColumn("[bold green]Count[/]").RightAligned().Footer($"[bold]{total}[/]"));
+        _ = table.AddColumn(new TableColumn("[bold green]Format[/]").Footer("[bold]Total[/]"));
+        _ = table.AddColumn(new TableColumn("[bold green]Count[/]").RightAligned().Footer($"[bold]{total}[/]"));
 
-        table.AddRow("JPEG", jpgCount.ToString())
+        _ = table.AddRow("JPEG", jpgCount.ToString())
              .AddRow("PNG", pngCount.ToString())
              .AddRow("WebP", webpCount.ToString());
 
-        table.Border(TableBorder.Simple);
+        _ = table.Border(TableBorder.Simple);
         AnsiConsole.Write(table);
 
         return 0;

@@ -86,13 +86,12 @@ public class ImageService : IImageService
             File.Move(tempPath, finalPath!, overwrite: true);
 
             if (!finalPath!.Equals(inputPath, StringComparison.OrdinalIgnoreCase) && File.Exists(inputPath))
-            {
                 File.Delete(inputPath);
-            }
         }
         catch
         {
-            if (File.Exists(tempPath)) File.Delete(tempPath);
+            if (File.Exists(tempPath))
+                File.Delete(tempPath);
             throw;
         }
     }
