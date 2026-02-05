@@ -7,7 +7,7 @@ namespace RanaImageTool.Services;
 
 public class BatchRunner : IBatchRunner
 {
-    public Task<int> RunBatchAsync(string? path, string[] extensions, string activityName, Action<string> action)
+    public async Task<int> RunBatchAsync(string? path, string[] extensions, string activityName, Action<string> action)
     {
         var sw = Stopwatch.StartNew();
         string dir = path ?? Directory.GetCurrentDirectory();
@@ -15,7 +15,7 @@ public class BatchRunner : IBatchRunner
         if (!Directory.Exists(dir))
         {
             AnsiConsole.MarkupLine($"[red][bold]Error![/] Directory not found: [underline]{Markup.Escape(dir)}[/][/]");
-            return Task.FromResult(-1);
+            return 1;
         }
 
         AnsiConsole.WriteLine();
@@ -28,45 +28,52 @@ public class BatchRunner : IBatchRunner
         if (files.Count == 0)
         {
             AnsiConsole.MarkupLine("[yellow]No matching files found.[/]");
-            return Task.FromResult(0);
+            return 0;
         }
 
         AnsiConsole.MarkupLine($"Found [green]{files.Count}[/] files.");
 
         var errors = new ConcurrentBag<(string file, Exception exception)>();
 
-        AnsiConsole.Progress()
+        await AnsiConsole
+            .Progress()
             .AutoClear(false)
             .Columns([
                 new TaskDescriptionColumn(),
                 new ProgressBarColumn(),
                 new PercentageColumn(),
                 new SpinnerColumn(),
-                new RemainingTimeColumn(),
+                new RemainingTimeColumn
+                {
+                    Style = new Style(Color.Yellow),
+                },
             ])
-            .Start(ctx =>
+            .StartAsync(async ctx =>
             {
                 var task = ctx.AddTask($"[green]{Markup.Escape(activityName)}[/]", maxValue: files.Count);
 
-                var parallelOptions = new ParallelOptions
+                await Task.Run(() =>
                 {
-                    MaxDegreeOfParallelism = Environment.ProcessorCount
-                };
+                    var parallelOptions = new ParallelOptions
+                    {
+                        MaxDegreeOfParallelism = Environment.ProcessorCount
+                    };
 
-                _ = Parallel.ForEach(files, parallelOptions, file =>
-                {
-                    try
+                    _ = Parallel.ForEach(files, parallelOptions, file =>
                     {
-                        action(file);
-                    }
-                    catch (Exception ex)
-                    {
-                        errors.Add((file, ex));
-                    }
-                    finally
-                    {
-                        task.Increment(1);
-                    }
+                        try
+                        {
+                            action(file);
+                        }
+                        catch (Exception ex)
+                        {
+                            errors.Add((file, ex));
+                        }
+                        finally
+                        {
+                            task.Increment(1);
+                        }
+                    });
                 });
             });
 
@@ -76,7 +83,7 @@ public class BatchRunner : IBatchRunner
         if (errors.IsEmpty)
         {
             AnsiConsole.MarkupLine($"[green]Success![/] Processed {files.Count} files in time: [bold]{ts}[/].");
-            return Task.FromResult(0);
+            return 0;
         }
         else
         {
@@ -88,7 +95,7 @@ public class BatchRunner : IBatchRunner
                 AnsiConsole.WriteException(exception, ExceptionFormats.ShortenEverything);
                 AnsiConsole.WriteLine();
             }
-            return Task.FromResult(1);
+            return 1;
         }
     }
 }

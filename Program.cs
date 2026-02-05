@@ -12,7 +12,7 @@ namespace RanaImageTool;
 
 public static class Program
 {
-    public static int Main(string[] args)
+    public static async Task<int> Main(string[] args)
     {
         // 1. 创建服务集合
         var services = new ServiceCollection();
@@ -45,7 +45,7 @@ public static class Program
                 .WithDescription("扫描目录并计数图片文件。");
         });
 
-        return app.Run(args);
+        return await app.RunAsync(args);
     }
 
     private static string GetAppVersion()

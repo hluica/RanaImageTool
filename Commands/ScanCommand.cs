@@ -13,7 +13,7 @@ public class ScanCommand : Command<BaseSettings>
         if (!Directory.Exists(dir))
         {
             AnsiConsole.MarkupLine($"[red]Error:[/] Directory not found: {Markup.Escape(dir)}");
-            return -1;
+            return 1;
         }
 
         AnsiConsole.MarkupLine($"[grey]Scanning: [/][blue underline]{Markup.Escape(dir)}[/]");
