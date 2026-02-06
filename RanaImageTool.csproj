@@ -10,7 +10,7 @@
     <ToolCommandName>RanaImageTool</ToolCommandName>
     <PackageOutputPath>./nupkg</PackageOutputPath>
     <NeutralLanguage>zh-CN</NeutralLanguage>
-    <Version>3.1.1</Version>
+    <Version>4.0.0</Version>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 
