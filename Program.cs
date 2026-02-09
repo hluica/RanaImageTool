@@ -15,13 +15,13 @@ public static class Program
 {
     public static async Task<int> Main(string[] args)
     {
-        // 1. 创建服务集合
+        // 1. 配置服务集合
         var services = new ServiceCollection()
             .AddSingleton<RecyclableMemoryStreamManager>()
             .AddSingleton<IImageService, ImageService>()
             .AddSingleton<IBatchRunner, BatchRunner>();
 
-        // 3. 配置 Spectre.Console.Cli 使用 DI
+        // 2. 注册服务并配置应用
         var registrar = new TypeRegistrar(services);
         var app = new CommandApp(registrar);
 

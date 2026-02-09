@@ -16,8 +16,6 @@ public class BatchRunner(RecyclableMemoryStreamManager streamManager) : IBatchRu
     private static readonly int _threadCount = Math.Max(1, Environment.ProcessorCount - 1); // 保留一个核心给非计算任务
     private static readonly int _channelCapacity = Math.Clamp(_threadCount * 2, 10, 50);
 
-    // --- DTO 定义 ---
-
     public async Task<int> RunBatchAsync(
         string? path,
         string[] extensions,
