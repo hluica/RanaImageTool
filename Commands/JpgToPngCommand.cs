@@ -1,4 +1,5 @@
-﻿using RanaImageTool.Services;
+﻿using RanaImageTool.Models;
+using RanaImageTool.Services;
 using RanaImageTool.Settings;
 
 using Spectre.Console.Cli;
@@ -15,6 +16,15 @@ public class JpgToPngCommand(IBatchRunner batchRunner, IImageService imageServic
             settings.Path,
             [".jpg", ".jpeg"],
             "[convert] From JPG to PNG",
-            (file) => _imageService.ConvertFormat(file, ".png")
-        );
+            async (job) =>
+            {
+                var resultStream = await _imageService.ConvertFormatToPngAsync(job.SourceStream);
+
+                // ShouldDeleteOriginal = true: 因为是将 jpg 转为 png，通常意味着替换或清理原图
+                return new ProcessedJob(
+                    job.OriginalFilePath,
+                    ".png",
+                    resultStream,
+                    ShouldDeleteOriginal: true);
+            });
 }

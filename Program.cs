@@ -1,6 +1,7 @@
 ﻿using System.Reflection;
 
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.IO;
 
 using RanaImageTool.Commands;
 using RanaImageTool.Infrastructure;
@@ -15,10 +16,8 @@ public static class Program
     public static async Task<int> Main(string[] args)
     {
         // 1. 创建服务集合
-        var services = new ServiceCollection();
-
-        // 2. 注册业务服务
-        _ = services
+        var services = new ServiceCollection()
+            .AddSingleton<RecyclableMemoryStreamManager>()
             .AddSingleton<IImageService, ImageService>()
             .AddSingleton<IBatchRunner, BatchRunner>();
 

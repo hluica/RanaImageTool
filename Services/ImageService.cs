@@ -1,97 +1,100 @@
 ﻿using ExifLibrary;
 
+using Microsoft.IO;
+
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Png;
 using SixLabors.ImageSharp.Metadata;
 
 namespace RanaImageTool.Services;
 
-public class ImageService : IImageService
+public class ImageService(RecyclableMemoryStreamManager streamManager) : IImageService
 {
-    public void ConvertFormat(string inputPath, string targetExtension)
+    private readonly RecyclableMemoryStreamManager _streamManager = streamManager;
+
+    public async Task<Stream> ConvertFormatToPngAsync(Stream inputStream)
     {
-        string dir = Path.GetDirectoryName(inputPath)!;
-        string fileName = Path.GetFileNameWithoutExtension(inputPath);
+        // 创建一个可回收的内存流作为输出
+        var outputStream = _streamManager.GetStream();
 
-        string finalPath = Path.Combine(dir, fileName + targetExtension);
-        string tempPath = finalPath + $".tmp_{Guid.NewGuid():N}";
-
-        using (var image = Image.Load(inputPath))
+        try
         {
-            var encoder = new PngEncoder();
-            image.Save(tempPath, encoder);
+            // 重置流位置，确保从头读取
+            inputStream.Position = 0;
+
+            // ImageSharp 加载
+            using (var image = await Image.LoadAsync(inputStream))
+            {
+                await image.SaveAsync(outputStream, new PngEncoder());
+            }
+
+            // 重置输出流位置，以便后续读取写入磁盘
+            outputStream.Position = 0;
+            return outputStream;
         }
-
-        File.Move(tempPath, finalPath, overwrite: true);
-
-        if (!string.Equals(inputPath, finalPath, StringComparison.OrdinalIgnoreCase) && File.Exists(inputPath))
+        catch
         {
-            File.Delete(inputPath);
+            // 如果处理过程中出错，必须手动释放创建的输出流
+            await outputStream.DisposeAsync();
+            throw;
         }
     }
 
-    public void ModifyPpi(string inputPath, int fixedPpi, bool useLinear)
+    public async Task<Stream> ModifyPpiAsync(Stream inputStream, int fixedPpi, bool useLinear)
     {
-        string tempPath = inputPath + $".tmp_{Guid.NewGuid():N}";
-        bool isJpeg = false;
-        int targetPpi = 0;
-        string? finalPath = null;
+        // 预检图片 PPI
+        inputStream.Position = 0;
+        var imageInfo = await Image.IdentifyAsync(inputStream);
+        int targetPpi = useLinear
+            ? (int)(imageInfo.Width / 10.0)
+            : fixedPpi;
 
-        // 阶段一：读取元数据、计算参数以及处理非 JPEG 格式
-        using (var fs = File.OpenRead(inputPath))
+        // 预检图片格式
+        inputStream.Position = 0;
+        var format = await Image.DetectFormatAsync(inputStream);
+        bool isJpeg = format.Name.Equals("JPEG", StringComparison.OrdinalIgnoreCase);
+
+        var outputStream = _streamManager.GetStream("ModifyPpiResult");
+
+        try
         {
-            var imageInfo = Image.Identify(fs);
-            fs.Position = 0;
-            var format = Image.DetectFormat(fs);
-
-            isJpeg = format.Name.Equals("JPEG", StringComparison.OrdinalIgnoreCase);
-            targetPpi = useLinear ? (int)(imageInfo.Width / 10.0) : fixedPpi;
-
-            string correctExtension = isJpeg ? ".jpg" : ".png";
-            finalPath = Path.ChangeExtension(inputPath, correctExtension);
-
-            if (!isJpeg)
+            if (isJpeg)
             {
-                fs.Position = 0;
-                using var image = Image.Load(fs);
+                // ExifLibNet 逻辑
+                inputStream.Position = 0;
+                var exifFile = await ImageFile.FromStreamAsync(inputStream);
+
+                exifFile.Properties.Remove(ExifTag.XResolution);
+                exifFile.Properties.Add(new ExifURational(ExifTag.XResolution, (uint)targetPpi, 1));
+
+                exifFile.Properties.Remove(ExifTag.YResolution);
+                exifFile.Properties.Add(new ExifURational(ExifTag.YResolution, (uint)targetPpi, 1));
+
+                exifFile.Properties.Set(ExifTag.ResolutionUnit, ResolutionUnit.Inches);
+
+                // 保存到输出流
+                await exifFile.SaveAsync(outputStream);
+            }
+            else
+            {
+                // ImageSharp 逻辑
+                inputStream.Position = 0;
+                using var image = await Image.LoadAsync(inputStream);
 
                 image.Metadata.HorizontalResolution = targetPpi;
                 image.Metadata.VerticalResolution = targetPpi;
                 image.Metadata.ResolutionUnits = PixelResolutionUnit.PixelsPerInch;
 
-                var encoder = new PngEncoder();
-                image.Save(tempPath, encoder);
+                // 保存为 PNG 格式的输出流
+                await image.SaveAsync(outputStream, new PngEncoder());
             }
-        }
 
-        // 阶段二：处理 JPEG 格式 (使用文件路径)
-        if (isJpeg)
-        {
-            var exifFile = ImageFile.FromFile(inputPath);
-
-            exifFile.Properties.Remove(ExifTag.XResolution);
-            exifFile.Properties.Add(new ExifURational(ExifTag.XResolution, (uint)targetPpi, 1));
-
-            exifFile.Properties.Remove(ExifTag.YResolution);
-            exifFile.Properties.Add(new ExifURational(ExifTag.YResolution, (uint)targetPpi, 1));
-
-            exifFile.Properties.Set(ExifTag.ResolutionUnit, ResolutionUnit.Inches);
-
-            exifFile.Save(tempPath);
-        }
-
-        // 阶段三：原子化提交与清理
-        try
-        {
-            File.Move(tempPath, finalPath!, overwrite: true);
-
-            if (!finalPath!.Equals(inputPath, StringComparison.OrdinalIgnoreCase) && File.Exists(inputPath))
-                File.Delete(inputPath);
+            outputStream.Position = 0;
+            return outputStream;
         }
         catch
         {
-            if (File.Exists(tempPath))
-                File.Delete(tempPath);
+            await outputStream.DisposeAsync();
             throw;
         }
     }

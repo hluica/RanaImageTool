@@ -1,14 +1,28 @@
 ﻿using System.Diagnostics;
 using System.Threading.Channels;
+
+using Microsoft.IO;
+
+using RanaImageTool.Models;
+
 using Spectre.Console;
 
 namespace RanaImageTool.Services;
 
-public class BatchRunner : IBatchRunner
+public class BatchRunner(RecyclableMemoryStreamManager streamManager) : IBatchRunner
 {
-    private readonly record struct BatchResult(string File, Exception? Exception);
+    private readonly RecyclableMemoryStreamManager _streamManager = streamManager;
 
-    public async Task<int> RunBatchAsync(string? path, string[] extensions, string activityName, Action<string> action)
+    private static readonly int _threadCount = Math.Max(1, Environment.ProcessorCount - 1); // 保留一个核心给非计算任务
+    private static readonly int _channelCapacity = Math.Clamp(_threadCount * 2, 10, 50);
+
+    // --- DTO 定义 ---
+
+    public async Task<int> RunBatchAsync(
+        string? path,
+        string[] extensions,
+        string activityName,
+        Func<SourceJob, Task<ProcessedJob>> processAction)
     {
         var sw = Stopwatch.StartNew();
         string dir = path ?? Directory.GetCurrentDirectory();
@@ -22,8 +36,11 @@ public class BatchRunner : IBatchRunner
         AnsiConsole.WriteLine();
         AnsiConsole.MarkupLine($"[grey]Scanning: [/][blue underline]{Markup.Escape(dir)}[/]");
 
-        var files = Directory.EnumerateFiles(dir, "*.*", SearchOption.AllDirectories)
-            .Where(f => extensions.Any(ext => f.EndsWith(ext, StringComparison.OrdinalIgnoreCase)))
+        var files = Directory
+            .EnumerateFiles(dir, "*.*", SearchOption.AllDirectories)
+            .Where(f => extensions.Any(
+                ext => f.EndsWith(
+                    ext, StringComparison.OrdinalIgnoreCase)))
             .ToList();
 
         if (files.Count == 0)
@@ -53,93 +70,190 @@ public class BatchRunner : IBatchRunner
             {
                 var task = ctx.AddTask($"[green]{Markup.Escape(activityName)}[/]", maxValue: files.Count);
 
-                // 1. 配置高性能通道
-                // jobChannel: 限制容量为 500。如果 Worker 处理不过来，生产者会暂缓写入 (背压)
-                var jobChannel = Channel.CreateBounded<string>(new BoundedChannelOptions(500)
-                {
-                    SingleWriter = true, // 只有一个主循环在写入
-                    SingleReader = false // 多个 Worker 抢占读取
-                });
+                // --- 1. 配置通道 ---
 
-                // resultChannel: 结果处理（UI更新/错误记录）通常很快，使用无界通道
-                var resultChannel = Channel.CreateUnbounded<BatchResult>(new UnboundedChannelOptions
-                {
-                    SingleWriter = false, // 多个 Worker 写入
-                    SingleReader = true   // 只有一个协调者读取
-                });
+                // Load -> Process 通道 (有界，背压)
+                var loadChannel = Channel.CreateBounded<SourceJob>(
+                    new BoundedChannelOptions(_channelCapacity)
+                    {
+                        SingleWriter = true,
+                        SingleReader = false
+                    });
 
-                // 2. 计算 Worker 数量
-                // 预留 1 个核心给 IO/UI/GC，其余核心全速运行业务逻辑
-                int workerCount = Math.Max(1, Environment.ProcessorCount - 1);
+                // Process -> Save 通道 (有界，防止 Save 速度慢于 Process 导致内存爆炸)
+                var saveChannel = Channel.CreateBounded<ProcessedJob>(
+                    new BoundedChannelOptions(_channelCapacity * 2)
+                    {
+                        SingleWriter = false,
+                        SingleReader = true
+                    });
 
-                // 3-A. 启动协调者 (Coordinator) - 负责 UI 更新和错误收集
+                // Save -> Result 通道 (无界，通常处理很快)
+                var resultChannel = Channel.CreateUnbounded<BatchResult>(
+                    new UnboundedChannelOptions
+                    {
+                        SingleWriter = true,
+                        SingleReader = true
+                    });
+
+                // --- 2. 配置任务 ---
+
                 var coordinatorTask = Task.Run(async () =>
                 {
-                    // 持续读取直到结果通道关闭
                     await foreach (var result in resultChannel.Reader.ReadAllAsync())
                     {
-                        // 错误处理：单线程操作，无需锁
                         if (result.Exception != null)
-                        {
                             errors.Add((result.File, result.Exception));
-                        }
-
-                        // UI 更新：单线程操作，流畅无阻塞
                         task.Increment(1);
                     }
                 });
 
-                // 3-B. 启动消费者集群 (Workers) - 负责执行 Action
-                var consumerTasks = new Task[workerCount];
-                for (int i = 0; i < workerCount; i++)
+                var saverTask = Task.Run(async () =>
                 {
-                    consumerTasks[i] = Task.Run(async () =>
+                    await foreach (var job in saveChannel.Reader.ReadAllAsync())
                     {
-                        // 持续从任务通道读取
-                        await foreach (string file in jobChannel.Reader.ReadAllAsync())
+                        try
+                        {
+                            string dir = Path.GetDirectoryName(job.OriginalFilePath)!;
+                            string fileName = Path.GetFileNameWithoutExtension(job.OriginalFilePath);
+                            string finalPath = Path.Combine(dir, fileName + job.TargetExtension);
+                            string tempPath = finalPath + $".tmp_{Guid.NewGuid():N}";
+
+                            // 写入临时文件
+                            using (var fs = new FileStream(
+                                tempPath,
+                                FileMode.Create,
+                                FileAccess.Write,
+                                FileShare.None,
+                                4096,
+                                true))
+                            {
+                                job.ResultStream.Position = 0;
+                                await job.ResultStream.CopyToAsync(fs);
+                            }
+
+                            // 原子移动
+                            File.Move(tempPath, finalPath, overwrite: true);
+
+                            // 清理原文件
+                            if (job.ShouldDeleteOriginal)
+                            {
+                                // 检查是否覆盖了自身 (扩展名未变)
+                                if (!string.Equals(job.OriginalFilePath, finalPath, StringComparison.OrdinalIgnoreCase)
+                                    && File.Exists(job.OriginalFilePath))
+                                    File.Delete(job.OriginalFilePath);
+                            }
+
+                            await resultChannel.Writer.WriteAsync(
+                                new BatchResult(job.OriginalFilePath, null));
+                        }
+                        catch (Exception ex)
+                        {
+                            await resultChannel.Writer.WriteAsync(
+                                new BatchResult(job.OriginalFilePath, ex));
+                        }
+                        finally
+                        {
+                            // 关键：Saver 负责 Dispose 输出流
+                            await job.ResultStream.DisposeAsync();
+                        }
+                    }
+                });
+
+                var processorTasks = new Task[_threadCount];
+                for (int i = 0; i < _threadCount; i++)
+                {
+                    processorTasks[i] = Task.Run(async () =>
+                    {
+                        await foreach (var job in loadChannel.Reader.ReadAllAsync())
                         {
                             try
                             {
-                                // 执行传入的具体业务逻辑
-                                action(file);
+                                // 执行具体的业务逻辑
+                                var processedJob = await processAction(job);
 
-                                // 发送成功信号
-                                await resultChannel.Writer.WriteAsync(new BatchResult(file, null));
+                                // 推入 Save 队列
+                                await saveChannel.Writer.WriteAsync(processedJob);
                             }
                             catch (Exception ex)
                             {
-                                // 发送失败信号，携带异常信息
-                                await resultChannel.Writer.WriteAsync(new BatchResult(file, ex));
+                                await resultChannel.Writer.WriteAsync(
+                                    new BatchResult(job.OriginalFilePath, ex));
+                            }
+                            finally
+                            {
+                                // 关键：Processor 负责 Dispose 输入流
+                                await job.SourceStream.DisposeAsync();
                             }
                         }
                     });
                 }
 
-                // 3-C. 生产者 (Producer) - 快速分发任务
-                try
+                var loaderTask = Task.Run(async () =>
                 {
                     foreach (string? file in files)
                     {
-                        // 将文件推入管道
-                        // 如果管道满了，这里会异步等待，自动平衡生产与消费速度
-                        await jobChannel.Writer.WriteAsync(file);
+                        try
+                        {
+                            // 使用 RecyclableMemoryStream 替代 new MemoryStream()
+                            var stream = _streamManager.GetStream();
+
+                            // 异步读取文件到内存
+                            using (var fs = new FileStream(
+                                file,
+                                FileMode.Open,
+                                FileAccess.Read,
+                                FileShare.Read,
+                                4096,
+                                true))
+                            {
+                                await fs.CopyToAsync(stream);
+                            }
+                            stream.Position = 0; // 重置指针供读取
+
+                            // 推入 Process 队列
+                            await loadChannel.Writer.WriteAsync(
+                                new SourceJob(file, stream));
+                        }
+                        catch (Exception ex)
+                        {
+                            // 如果读取阶段就失败，直接跳过 Process/Save，发送到 Result
+                            await resultChannel.Writer.WriteAsync(
+                                new BatchResult(file, ex));
+                        }
                     }
+                });
+
+                // --- 3. 收集结果 ---
+
+                try
+                {
+                    await loaderTask; // 步骤 1: 等待加载完成
                 }
                 finally
                 {
-                    // 无论生产者是否发生异常，都要确保关闭通道
-                    jobChannel.Writer.Complete();
+                    loadChannel.Writer.Complete();
                 }
 
-                // 4. 优雅关闭流程
-                // 等待所有 Worker 处理完通道中的剩余数据
-                await Task.WhenAll(consumerTasks);
+                try
+                {
+                    await Task.WhenAll(processorTasks); // 步骤 2: 等待所有 CPU 任务完成
+                }
+                finally
+                {
+                    saveChannel.Writer.Complete();
+                }
 
-                // 告知协调者不会再有结果产生
-                resultChannel.Writer.Complete();
+                try
+                {
+                    await saverTask; // 步骤 3: 等待保存任务完成
+                }
+                finally
+                {
+                    resultChannel.Writer.Complete();
+                }
 
-                // 等待协调者完成最后的 UI 更新和错误记录
-                await coordinatorTask;
+                await coordinatorTask; // 步骤 4: 等待 UI 更新完毕
             });
 
         sw.Stop();

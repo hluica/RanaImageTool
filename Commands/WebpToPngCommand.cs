@@ -1,4 +1,5 @@
-﻿using RanaImageTool.Services;
+﻿using RanaImageTool.Models;
+using RanaImageTool.Services;
 using RanaImageTool.Settings;
 
 using Spectre.Console.Cli;
@@ -15,6 +16,17 @@ public class WebpToPngCommand(IBatchRunner batchRunner, IImageService imageServi
             settings.Path,
             [".webp"],
             "[webp] From WebP to PNG",
-            (file) => _imageService.ConvertFormat(file, ".png")
+            async (job) =>
+            {
+                // 1. 纯内存转换
+                var resultStream = await _imageService.ConvertFormatToPngAsync(job.SourceStream);
+
+                // 2. 返回处理结果
+                return new ProcessedJob(
+                    job.OriginalFilePath,
+                    ".png",
+                    resultStream,
+                    ShouldDeleteOriginal: true);
+            }
         );
 }
