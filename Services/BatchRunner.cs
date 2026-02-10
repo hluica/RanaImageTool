@@ -14,11 +14,13 @@ public class BatchRunner(RecyclableMemoryStreamManager streamManager) : IBatchRu
     private readonly RecyclableMemoryStreamManager _streamManager = streamManager;
 
     private static readonly int _threadCount = Math.Max(1, Environment.ProcessorCount - 1); // 保留一个核心给非计算任务
-    private static readonly int _channelCapacity = Math.Clamp(_threadCount * 2, 10, 50);
+    private static readonly int _channelCapacity = Math.Clamp(_threadCount + 2, 6, 48);
+
+    private sealed record FileMetadata(string FilePath, long Size);
 
     public async Task<int> RunBatchAsync(
         string? path,
-        string[] extensions,
+        HashSet<string> extensions,
         string activityName,
         Func<SourceJob, Task<ProcessedJob>> processAction)
     {
@@ -34,11 +36,18 @@ public class BatchRunner(RecyclableMemoryStreamManager streamManager) : IBatchRu
         AnsiConsole.WriteLine();
         AnsiConsole.MarkupLine($"[grey]Scanning: [/][blue underline]{Markup.Escape(dir)}[/]");
 
-        var files = Directory
-            .EnumerateFiles(dir, "*.*", SearchOption.AllDirectories)
-            .Where(f => extensions.Any(
-                ext => f.EndsWith(
-                    ext, StringComparison.OrdinalIgnoreCase)))
+        var directoryInfo = new DirectoryInfo(dir);
+        var enumerationOptions = new EnumerationOptions
+        {
+            RecurseSubdirectories = true,
+            IgnoreInaccessible = true,
+            AttributesToSkip = FileAttributes.System | FileAttributes.Hidden,
+        };
+
+        var files = directoryInfo
+            .EnumerateFiles("*", enumerationOptions)
+            .Where(f => extensions.Contains(f.Extension))
+            .Select(f => new FileMetadata(f.FullName, f.Length))
             .ToList();
 
         if (files.Count == 0)
@@ -134,13 +143,10 @@ public class BatchRunner(RecyclableMemoryStreamManager streamManager) : IBatchRu
                             File.Move(tempPath, finalPath, overwrite: true);
 
                             // 清理原文件
-                            if (job.ShouldDeleteOriginal)
-                            {
-                                // 检查是否覆盖了自身 (扩展名未变)
-                                if (!string.Equals(job.OriginalFilePath, finalPath, StringComparison.OrdinalIgnoreCase)
-                                    && File.Exists(job.OriginalFilePath))
-                                    File.Delete(job.OriginalFilePath);
-                            }
+                            if (job.ShouldDeleteOriginal
+                                && !string.Equals(job.OriginalFilePath, finalPath, StringComparison.OrdinalIgnoreCase)
+                                && File.Exists(job.OriginalFilePath))
+                                File.Delete(job.OriginalFilePath);
 
                             await resultChannel.Writer.WriteAsync(
                                 new BatchResult(job.OriginalFilePath, null));
@@ -189,16 +195,17 @@ public class BatchRunner(RecyclableMemoryStreamManager streamManager) : IBatchRu
 
                 var loaderTask = Task.Run(async () =>
                 {
-                    foreach (string? file in files)
+                    foreach (var file in files)
                     {
+                        RecyclableMemoryStream? stream = null;
                         try
                         {
                             // 使用 RecyclableMemoryStream 替代 new MemoryStream()
-                            var stream = _streamManager.GetStream();
+                            stream = _streamManager.GetStream("ReadFromFileStream", file.Size);
 
                             // 异步读取文件到内存
                             using (var fs = new FileStream(
-                                file,
+                                file.FilePath,
                                 FileMode.Open,
                                 FileAccess.Read,
                                 FileShare.Read,
@@ -211,13 +218,20 @@ public class BatchRunner(RecyclableMemoryStreamManager streamManager) : IBatchRu
 
                             // 推入 Process 队列
                             await loadChannel.Writer.WriteAsync(
-                                new SourceJob(file, stream));
+                                new SourceJob(file.FilePath, stream));
+
+                            stream = null; // 交出流的所有权
                         }
                         catch (Exception ex)
                         {
                             // 如果读取阶段就失败，直接跳过 Process/Save，发送到 Result
                             await resultChannel.Writer.WriteAsync(
-                                new BatchResult(file, ex));
+                                new BatchResult(file.FilePath, ex));
+                        }
+                        finally
+                        {
+                            if (stream is not null)
+                                await stream.DisposeAsync();
                         }
                     }
                 });

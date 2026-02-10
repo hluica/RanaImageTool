@@ -6,7 +6,7 @@ public interface IBatchRunner
 {
     Task<int> RunBatchAsync(
         string? path,
-        string[] extensions,
+        HashSet<string> extensions,
         string activityName,
         Func<SourceJob, Task<ProcessedJob>> processAction);
 }

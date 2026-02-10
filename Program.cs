@@ -13,11 +13,20 @@ namespace RanaImageTool;
 
 public static class Program
 {
+    private static readonly RecyclableMemoryStreamManager.Options _rmsOptions = new()
+    {
+        BlockSize = 131072, // 128KiB
+        LargeBufferMultiple = 1048576, // 1MiB
+        MaximumBufferSize = 134217728, // 128MiB
+        MaximumSmallPoolFreeBytes = 2147483648L, // 2GiB
+        MaximumLargePoolFreeBytes = 2147483648L, // 2GiB
+        GenerateCallStacks = false
+    };
     public static async Task<int> Main(string[] args)
     {
         // 1. 配置服务集合
         var services = new ServiceCollection()
-            .AddSingleton<RecyclableMemoryStreamManager>()
+            .AddSingleton(_ => new RecyclableMemoryStreamManager(_rmsOptions))
             .AddSingleton<IImageService, ImageService>()
             .AddSingleton<IBatchRunner, BatchRunner>();
 

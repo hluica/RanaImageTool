@@ -1,7 +1,8 @@
-﻿using ExifLibrary;
+﻿using System.Diagnostics;
+using ExifLibrary;
 
 using Microsoft.IO;
-
+using RanaImageTool.Commands;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Png;
 using SixLabors.ImageSharp.Metadata;
@@ -12,23 +13,39 @@ public class ImageService(RecyclableMemoryStreamManager streamManager) : IImageS
 {
     private readonly RecyclableMemoryStreamManager _streamManager = streamManager;
 
+    private enum ImageFormat
+    {
+        Png,
+        Jpg,
+    }
+
+    private static long CalculateEstimatedSize(int width, int height, ImageFormat format)
+        => format switch
+        {
+            ImageFormat.Png => width * height * 2, // 估算 PNG 大小：像素数 * 4字节/像素 * 50%压缩率
+            ImageFormat.Jpg => width * height,     // 估算 JPG 大小：像素数 * 4字节/像素 * 25%压缩率
+            _ => throw new ArgumentOutOfRangeException(nameof(format), $"不支持的格式: {format}")
+        };
+
     public async Task<Stream> ConvertFormatToPngAsync(Stream inputStream)
     {
-        // 创建一个可回收的内存流作为输出
-        var outputStream = _streamManager.GetStream();
+        inputStream.Position = 0;
+
+        // 估算输出 PNG 的大小，预分配足够的内存
+        var info = await Image.IdentifyAsync(inputStream);
+        long esimatedSize = CalculateEstimatedSize(info.Width, info.Height, ImageFormat.Png);
+
+        var outputStream = _streamManager.GetStream("ConvertResultStream", esimatedSize);
 
         try
         {
-            // 重置流位置，确保从头读取
             inputStream.Position = 0;
 
-            // ImageSharp 加载
             using (var image = await Image.LoadAsync(inputStream))
             {
                 await image.SaveAsync(outputStream, new PngEncoder());
             }
 
-            // 重置输出流位置，以便后续读取写入磁盘
             outputStream.Position = 0;
             return outputStream;
         }
@@ -40,7 +57,7 @@ public class ImageService(RecyclableMemoryStreamManager streamManager) : IImageS
         }
     }
 
-    public async Task<Stream> ModifyPpiAsync(Stream inputStream, int fixedPpi, bool useLinear)
+    public async Task<(Stream, bool isJpeg)> ModifyPpiAsync(Stream inputStream, int fixedPpi, bool useLinear)
     {
         // 预检图片 PPI
         inputStream.Position = 0;
@@ -54,7 +71,13 @@ public class ImageService(RecyclableMemoryStreamManager streamManager) : IImageS
         var format = await Image.DetectFormatAsync(inputStream);
         bool isJpeg = format.Name.Equals("JPEG", StringComparison.OrdinalIgnoreCase);
 
-        var outputStream = _streamManager.GetStream("ModifyPpiResult");
+        // 估算输出流大小，预分配足够的内存
+        long estimatedSize = CalculateEstimatedSize(
+            imageInfo.Width,
+            imageInfo.Height,
+            isJpeg ? ImageFormat.Jpg : ImageFormat.Png);
+
+        var outputStream = _streamManager.GetStream("ModifyPpiResult", estimatedSize);
 
         try
         {
@@ -90,7 +113,7 @@ public class ImageService(RecyclableMemoryStreamManager streamManager) : IImageS
             }
 
             outputStream.Position = 0;
-            return outputStream;
+            return (outputStream, isJpeg);
         }
         catch
         {
