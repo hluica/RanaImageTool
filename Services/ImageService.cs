@@ -1,8 +1,7 @@
-﻿using System.Diagnostics;
-using ExifLibrary;
+﻿using ExifLibrary;
 
 using Microsoft.IO;
-using RanaImageTool.Commands;
+
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Png;
 using SixLabors.ImageSharp.Metadata;
