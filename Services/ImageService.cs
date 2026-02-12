@@ -69,6 +69,7 @@ public class ImageService(RecyclableMemoryStreamManager streamManager) : IImageS
         inputStream.Position = 0;
         var format = await Image.DetectFormatAsync(inputStream);
         bool isJpeg = format.Name.Equals("JPEG", StringComparison.OrdinalIgnoreCase);
+        bool isPng = format.Name.Equals("PNG", StringComparison.OrdinalIgnoreCase);
 
         // 估算输出流大小，预分配足够的内存
         long estimatedSize = CalculateEstimatedSize(
@@ -97,6 +98,18 @@ public class ImageService(RecyclableMemoryStreamManager streamManager) : IImageS
                 // 保存到输出流
                 await exifFile.SaveAsync(outputStream);
             }
+            else if (isPng)
+            {
+                // 此处暂时使用原本逻辑；后续将开发专用于 PNG 的逻辑。
+                inputStream.Position = 0;
+                using var image = await Image.LoadAsync(inputStream);
+
+                image.Metadata.HorizontalResolution = targetPpi;
+                image.Metadata.VerticalResolution = targetPpi;
+                image.Metadata.ResolutionUnits = PixelResolutionUnit.PixelsPerInch;
+
+                await image.SaveAsync(outputStream, new PngEncoder());
+            }
             else
             {
                 // ImageSharp 逻辑
@@ -107,7 +120,7 @@ public class ImageService(RecyclableMemoryStreamManager streamManager) : IImageS
                 image.Metadata.VerticalResolution = targetPpi;
                 image.Metadata.ResolutionUnits = PixelResolutionUnit.PixelsPerInch;
 
-                // 保存为 PNG 格式的输出流
+                // 无视原始格式保存为 PNG 格式的输出流
                 await image.SaveAsync(outputStream, new PngEncoder());
             }
 
