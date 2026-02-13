@@ -2,6 +2,8 @@
 
 using Microsoft.IO;
 
+using RanaImageTool.Utils;
+
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Png;
 using SixLabors.ImageSharp.Metadata;
@@ -83,7 +85,7 @@ public class ImageService(RecyclableMemoryStreamManager streamManager) : IImageS
         {
             if (isJpeg)
             {
-                // ExifLibNet 逻辑
+                // ExifLibNet 逻辑，可不重编码而修改元数据。
                 inputStream.Position = 0;
                 var exifFile = await ImageFile.FromStreamAsync(inputStream);
 
@@ -100,19 +102,13 @@ public class ImageService(RecyclableMemoryStreamManager streamManager) : IImageS
             }
             else if (isPng)
             {
-                // 此处暂时使用原本逻辑；后续将开发专用于 PNG 的逻辑。
+                // 专用于 PNG 的逻辑，直接修改 PPI 元数据而不重新编码。
                 inputStream.Position = 0;
-                using var image = await Image.LoadAsync(inputStream);
-
-                image.Metadata.HorizontalResolution = targetPpi;
-                image.Metadata.VerticalResolution = targetPpi;
-                image.Metadata.ResolutionUnits = PixelResolutionUnit.PixelsPerInch;
-
-                await image.SaveAsync(outputStream, new PngEncoder());
+                await PngUtil.ModifyPngPpiAsync(inputStream, outputStream, targetPpi);
             }
             else
             {
-                // ImageSharp 逻辑
+                // ImageSharp 逻辑，因为涉及格式转换，必须使用重编码的方式修改元数据。
                 inputStream.Position = 0;
                 using var image = await Image.LoadAsync(inputStream);
 
