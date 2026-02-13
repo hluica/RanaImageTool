@@ -62,6 +62,7 @@ RanaImageTool [command] [options]
 | `scan`    | 扫描目录并计数图片文件。                      |
 
 ### 参数
+
 - 公共参数
   - `-p|--path <PATH>` : 指定要处理的目录路径。当未传入此参数时，默认为当前工作目录。
 - `setppi` 命令特有参数
@@ -71,21 +72,25 @@ RanaImageTool [command] [options]
 ### 示例
 
 #### 扫描图片文件
+
 ```powershell
 RanaImageTool scan -p "C:\Images"
 ```
 
 #### 将 WebP 转换为 PNG
+
 ```powershell
 RanaImageTool webp -p "C:\Images"
 ```
 
 #### 将 JPEG 转换为 PNG
+
 ```powershell
 RanaImageTool convert -p "C:\Images"
 ```
 
 #### 设置 PPI
+
 ```powershell
 # 固定值模式，设置 PPI 为 300
 RanaImageTool setppi -p "C:\Images" --val 300
@@ -104,23 +109,25 @@ RanaImageTool setppi -p "C:\Images"
 
 ### 依赖项
 
-- [SixLabors.ImageSharp](https://github.com/SixLabors/ImageSharp): 用于图像处理。
 - [ExifLibNet](https://github.com/oozcitak/exiflibrary): 用于读取和修改 JPEG 图像的 PPI 数据。
-- [Spectre.Console](https://github.com/spectreconsole/spectre.console): 用于命令行界面和参数解析。
 - [Microsoft.IO.RecyclableMemoryStream](https://github.com/microsoft/Microsoft.IO.RecyclableMemoryStream): 用于配置高性能的池化内存流。
+- [SixLabors.ImageSharp](https://github.com/SixLabors/ImageSharp): 用于图像处理。
+- [Spectre.Console](https://github.com/spectreconsole/spectre.console): 用于命令行界面和参数解析。
+- [System.IO.Hashing](https://learn.microsoft.com/en-us/dotnet/api/system.io.hashing?view=net-10.0-pp): 用于在 PNG 图片元数据编辑方法中计算 CRC32 校验和。
 
 > [!Warning]
-> 由于程序的并发数量和内存占用与逻辑处理器数量有关，当您的设备有较多处理器时，需注意避免内存占用过多。
 > 
-> 设您将要处理的图像的压缩大小为 $a$，未压缩大小为 $A$，处理器数量为 $P$。则一般地，程序运行时所需的内存为：
-> $(P - 1) \times A + (3P + 3) \times a$，
-> 其中第一项是执行图形处理时各线程存储未压缩的像素数据所需的最大总内存大小；第二项是流水线上各管道中积压的图片字节流所占用的总大小。
+> 程序的内存占用与逻辑处理器数量有关，因为并行处理的数量取决于逻辑处理器的个数。
 > 
-> 对于32核的处理器而言，理想的内存占用是 2.9GiB。通过启用 Server GC 和 Concurrent GC，在开发者的设备上实际的内存占用可以被控制在 3.1GiB 左右。若不启用这些配置，则内存占用可能达到 6GiB 甚至更多，请您注意。
+> 若您的设备有较多处理器，且您需要大量在设置 PPI 时选用重编码路径（即，图片编码既不是 JPEG 也不是 PNG），则可能导致内存占用大幅增加。
+> 
+> 这是因为图片重编码需要大量额外的内存存储中间数据。
 
 ## 版本历史
+
 | 版本   | 发布日期 | 更改日志                                                                                                                 |
 | ------ | -------- | ------------------------------------------------------------------------------------------------------------------------ |
+| v4.3.0 | 26-02-13 | 手动编写用于编辑 PNG 文件 PPI 的方法，直接编辑 PNG 编码的二进制流，避免重编码图片造成的内存占用                          |
 | v4.2.0 | 26-02-11 | 手动添加 RecyclableMemoryStream 配置，优化内存使用；重构后端方法，减少内存浪费；使用服务器GC和后台GC，限制内存无序膨胀。 |
 | v4.1.0 | 26-02-09 | 继续重构并行方法，实现更高效的资源管理。                                                                                 |
 | v4.0.0 | 26-02-06 | 使用生产者-消费者模型重构并行方法，提升性能和资源利用率。                                                                |
