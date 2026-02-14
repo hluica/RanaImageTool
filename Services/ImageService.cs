@@ -104,7 +104,7 @@ public class ImageService(RecyclableMemoryStreamManager streamManager) : IImageS
             {
                 // 专用于 PNG 的逻辑，直接修改 PPI 元数据而不重新编码。
                 inputStream.Position = 0;
-                await PngUtil.ModifyPngPpiAsync(inputStream, outputStream, targetPpi);
+                await PngUtils.ModifyPngPpiAsync(inputStream, outputStream, targetPpi);
             }
             else
             {

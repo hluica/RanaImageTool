@@ -4,7 +4,7 @@ using System.IO.Hashing;
 
 namespace RanaImageTool.Utils;
 
-public static class PngUtil
+public static class PngUtils
 {
     // PNG 文件签名
     private static ReadOnlySpan<byte> PngSignature => [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
@@ -53,67 +53,60 @@ public static class PngUtil
 
         // 借用共享内存池用于数据拷贝，避免大对象分配
         // 大小设为 81920 (80KB) 是一个经验值，能在性能和内存间取得平衡
-        byte[] copyBuffer = ArrayPool<byte>.Shared.Rent(81920);
+        using var owner = MemoryPool<byte>.Shared.Rent(81920);
+        var copyBuffer = owner.Memory;
 
-        try
+        // 4. 循环处理块 (Chunks)
+        while (true)
         {
-            // 4. 循环处理块 (Chunks)
-            while (true)
+            // 读取 Chunk Header: Length (4 bytes) + Type (4 bytes)
+            read = await inputStream.ReadAsync(headerBuffer.AsMemory(0, 8));
+            if (read == 0)
+                break; // 流结束
+            if (read < 8)
+                throw new EndOfStreamException("Unexpected end of stream while reading chunk header.");
+
+            uint chunkLength = BinaryPrimitives.ReadUInt32BigEndian(new ReadOnlySpan<byte>(headerBuffer, 0, 4));
+            uint chunkType = BinaryPrimitives.ReadUInt32BigEndian(new ReadOnlySpan<byte>(headerBuffer, 4, 4));
+
+            // 核心逻辑分支
+            if (chunkType == CHUNK_IHDR)
             {
-                // 读取 Chunk Header: Length (4 bytes) + Type (4 bytes)
-                read = await inputStream.ReadAsync(headerBuffer.AsMemory(0, 8));
-                if (read == 0)
-                    break; // 流结束
-                if (read < 8)
-                    throw new EndOfStreamException("Unexpected end of stream while reading chunk header.");
+                // 1. 写入原本的 IHDR
+                await outputStream.WriteAsync(headerBuffer.AsMemory(0, 8)); // Header
+                await CopyBytesAsync(inputStream, outputStream, chunkLength + 4, copyBuffer); // Data + CRC
 
-                uint chunkLength = BinaryPrimitives.ReadUInt32BigEndian(new ReadOnlySpan<byte>(headerBuffer, 0, 4));
-                uint chunkType = BinaryPrimitives.ReadUInt32BigEndian(new ReadOnlySpan<byte>(headerBuffer, 4, 4));
-
-                // 核心逻辑分支
-                if (chunkType == CHUNK_IHDR)
+                // 2. 紧接着 IHDR 之后，强制插入新的 pHYs 块
+                // 这是最安全的位置，必然在 IDAT 之前
+                await outputStream.WriteAsync(newPhysChunkBytes);
+                physWritten = true;
+            }
+            else if (chunkType == CHUNK_PHYS)
+            {
+                // 发现旧的 pHYs，直接跳过 (相当于删除)
+                // 跳过长度 = Data Length + CRC (4 bytes)
+                _ = inputStream.Seek(chunkLength + 4, SeekOrigin.Current);
+            }
+            else if (chunkType == CHUNK_IEND)
+            {
+                // 兜底：如果还没写 pHYs (例如流中没有 IHDR)，虽然是非法 PNG，仍在 IEND 前补一个
+                if (!physWritten)
                 {
-                    // 1. 写入原本的 IHDR
-                    await outputStream.WriteAsync(headerBuffer.AsMemory(0, 8)); // Header
-                    await CopyBytesAsync(inputStream, outputStream, chunkLength + 4, copyBuffer); // Data + CRC
-
-                    // 2. 紧接着 IHDR 之后，强制插入新的 pHYs 块
-                    // 这是最安全的位置，必然在 IDAT 之前
                     await outputStream.WriteAsync(newPhysChunkBytes);
                     physWritten = true;
                 }
-                else if (chunkType == CHUNK_PHYS)
-                {
-                    // 发现旧的 pHYs，直接跳过 (相当于删除)
-                    // 跳过长度 = Data Length + CRC (4 bytes)
-                    _ = inputStream.Seek(chunkLength + 4, SeekOrigin.Current);
-                }
-                else if (chunkType == CHUNK_IEND)
-                {
-                    // 兜底：如果还没写 pHYs (例如流中没有 IHDR)，虽然是非法 PNG，仍在 IEND 前补一个
-                    if (!physWritten)
-                    {
-                        await outputStream.WriteAsync(newPhysChunkBytes);
-                        physWritten = true;
-                    }
 
-                    // 写入 IEND 并结束
-                    await outputStream.WriteAsync(headerBuffer.AsMemory(0, 8));
-                    await CopyBytesAsync(inputStream, outputStream, chunkLength + 4, copyBuffer);
-                    break;
-                }
-                else
-                {
-                    // 普通块 (IDAT, tEXt, etc.)：直接复制
-                    await outputStream.WriteAsync(headerBuffer.AsMemory(0, 8));
-                    await CopyBytesAsync(inputStream, outputStream, chunkLength + 4, copyBuffer);
-                }
+                // 写入 IEND 并结束
+                await outputStream.WriteAsync(headerBuffer.AsMemory(0, 8));
+                await CopyBytesAsync(inputStream, outputStream, chunkLength + 4, copyBuffer);
+                break;
             }
-        }
-        finally
-        {
-            // 归还内存池
-            ArrayPool<byte>.Shared.Return(copyBuffer);
+            else
+            {
+                // 普通块 (IDAT, tEXt, etc.)：直接复制
+                await outputStream.WriteAsync(headerBuffer.AsMemory(0, 8));
+                await CopyBytesAsync(inputStream, outputStream, chunkLength + 4, copyBuffer);
+            }
         }
     }
 
@@ -134,31 +127,31 @@ public static class PngUtil
         // 4 bytes: CRC
 
         byte[] chunk = new byte[4 + 4 + 9 + 4];
-        Span<byte> span = chunk;
+        var span = chunk.AsSpan();
 
         // 1. Length = 9
-        BinaryPrimitives.WriteUInt32BigEndian(span[..4], 9);
+        BinaryPrimitives.WriteUInt32BigEndian(span[0..4], 9);
 
         // 2. Type = pHYs
-        BinaryPrimitives.WriteUInt32BigEndian(span.Slice(4, 4), CHUNK_PHYS);
+        BinaryPrimitives.WriteUInt32BigEndian(span[4..8], CHUNK_PHYS);
 
         // 3. Data
         // X Axis PPM
-        BinaryPrimitives.WriteUInt32BigEndian(span.Slice(8, 4), ppm);
+        BinaryPrimitives.WriteUInt32BigEndian(span[8..12], ppm);
         // Y Axis PPM
-        BinaryPrimitives.WriteUInt32BigEndian(span.Slice(12, 4), ppm);
+        BinaryPrimitives.WriteUInt32BigEndian(span[12..16], ppm);
         // Unit (1 = meter)
         span[16] = 1;
 
         // 4. CRC Calculation
         // CRC covers Chunk Type (4 bytes) + Chunk Data (9 bytes) -> Total 13 bytes
         // Offset starts at 4 (Type)
-        var crcData = span.Slice(4, 13);
+        var crcData = span[4..17];
 
         // 使用 System.IO.Hashing 计算 CRC32
         // 为了绝对安全，我们计算出 UInt32 然后手动 WriteBigEndian。
         uint crcValue = Crc32.HashToUInt32(crcData);
-        BinaryPrimitives.WriteUInt32BigEndian(span.Slice(17, 4), crcValue);
+        BinaryPrimitives.WriteUInt32BigEndian(span[17..21], crcValue);
 
         return chunk;
     }
@@ -166,7 +159,7 @@ public static class PngUtil
     /// <summary>
     /// 从输入流精确复制指定长度的字节到输出流。
     /// </summary>
-    private static async Task CopyBytesAsync(Stream input, Stream output, long bytesToCopy, byte[] buffer)
+    private static async Task CopyBytesAsync(Stream input, Stream output, long bytesToCopy, Memory<byte> buffer)
     {
         // bytesToCopy 包含 Data + CRC
         long remaining = bytesToCopy;
@@ -174,18 +167,19 @@ public static class PngUtil
         {
             // 每次读取 min(buffer.Length, remaining)
             int count = (int)Math.Min(buffer.Length, remaining);
+            var currentBuffer = buffer[0..count];
 
             // 必须确保读够 count 个字节，处理网络流或分片读取的情况
             int bytesRead = 0;
             while (bytesRead < count)
             {
-                int n = await input.ReadAsync(buffer.AsMemory(bytesRead, count - bytesRead));
+                int n = await input.ReadAsync(currentBuffer[bytesRead..count]);
                 if (n == 0)
                     throw new EndOfStreamException("Unexpected end of stream during chunk data copy.");
                 bytesRead += n;
             }
 
-            await output.WriteAsync(buffer.AsMemory(0, bytesRead));
+            await output.WriteAsync(currentBuffer);
             remaining -= bytesRead;
         }
     }

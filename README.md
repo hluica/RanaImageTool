@@ -111,13 +111,15 @@ RanaImageTool setppi -p "C:\Images"
 
 - [ExifLibNet](https://github.com/oozcitak/exiflibrary): 用于读取和修改 JPEG 图像的 PPI 数据。
 - [Microsoft.IO.RecyclableMemoryStream](https://github.com/microsoft/Microsoft.IO.RecyclableMemoryStream): 用于配置高性能的池化内存流。
-- [SixLabors.ImageSharp](https://github.com/SixLabors/ImageSharp): 用于图像处理。
+- [SixLabors.ImageSharp](https://github.com/SixLabors/ImageSharp): 用于图重编码和 PPI 修改。
 - [Spectre.Console](https://github.com/spectreconsole/spectre.console): 用于命令行界面和参数解析。
 - [System.IO.Hashing](https://learn.microsoft.com/en-us/dotnet/api/system.io.hashing?view=net-10.0-pp): 用于在 PNG 图片元数据编辑方法中计算 CRC32 校验和。
 
 > [!Warning]
 > 
 > 程序的内存占用与逻辑处理器数量有关，因为并行处理的数量取决于逻辑处理器的个数。
+> 
+> 目前的程序设定，图片格式为 JPEG 或 PNG 时，将直接编辑图片的元数据，保留图片的原始格式；对其他格式的图片，将重新编码为 PNG，同时编辑元数据。
 > 
 > 若您的设备有较多处理器，且您需要大量在设置 PPI 时选用重编码路径（即，图片编码既不是 JPEG 也不是 PNG），则可能导致内存占用大幅增加。
 > 
@@ -127,6 +129,7 @@ RanaImageTool setppi -p "C:\Images"
 
 | 版本   | 发布日期 | 更改日志                                                                                                                 |
 | ------ | -------- | ------------------------------------------------------------------------------------------------------------------------ |
+| v4.3.1 | 26-02-14 | 优化 PDF 元数据编辑方法。                                                                                                |
 | v4.3.0 | 26-02-13 | 手动编写用于编辑 PNG 文件 PPI 的方法，直接编辑 PNG 编码的二进制流，避免重编码图片造成的内存占用                          |
 | v4.2.0 | 26-02-11 | 手动添加 RecyclableMemoryStream 配置，优化内存使用；重构后端方法，减少内存浪费；使用服务器GC和后台GC，限制内存无序膨胀。 |
 | v4.1.0 | 26-02-09 | 继续重构并行方法，实现更高效的资源管理。                                                                                 |
