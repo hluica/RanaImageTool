@@ -21,18 +21,18 @@ RanaImageTool 是一个基于 .NET 10 的命令行工具，用于处理图片文
 ### 4. 设置 PPI
 通过 `setppi` 命令为 JPEG 和 PNG 文件设置 PPI（像素每英寸）。支持两种模式：
 - **固定值模式**：将所有文件的 PPI 设置为指定的固定值。在未指定PPI时，默认为 144。
-- **线性模式**：根据图像的宽度线性计算 PPI。在未指定具体模式时，默认为此模式。
-- 在设置 PPI 模式下，某些文件将发生变化：
+- **线性模式**：根据图像的宽度计算 PPI。关系满足 $PPI = \mathrm{trunc} \left( Width / 10 \right)$ ，其中 $\mathrm{trunc}$ 是截断函数，表示向零取整。在未指定具体模式时，默认为此模式。
+- 在设置 PPI 模式下，文件的编码格式一般不会改变，除非：
   - 图片编码格式与扩展名所暗示的不同时，该图片将被转换格式。
-  - 默认转换目标格式为 PNG，扩展名亦将被纠正为 .png。
-  - 与此同时，JPEG 格式图片的扩展名将被规范为 .jpg。
+  - 非 JPEG 编码的图片将会被转换为 PNG 编码，扩展名亦将被纠正为 .png。
+  - JPEG 编码的图片扩展名将被规范为 .jpg。
 
 ## 安装
 
 RanaImageTool 是一个 .NET 全局工具。您可以通过以下步骤安装：
 
 1. 确保已安装 .NET 10 SDK。
-2. `git clone`或其他方法将项目文件下载到本地。
+2. 通过 `git clone`或其他方法将项目文件下载到本地。
 3. 在项目目录下运行以下命令：
 
 ```powershell
@@ -41,7 +41,7 @@ dotnet pack
 
 # 安装工具
 dotnet tool install RanaImageTool --global --add-source ./nupkg --version *.*.*
-# 建议在安装时指定版本号（从项目文件查询），这有助于确保所有文件均被更新。
+# 建议在安装时指定版本号（从 csproj 文件查询，或使用 /nupkg 文件夹中的任意可用包）。指定具体的版本号有助于确保所有文件均被更新。
 ```
 
 ## 使用方法
@@ -111,21 +111,21 @@ RanaImageTool setppi -p "C:\Images"
 
 - [ExifLibNet](https://github.com/oozcitak/exiflibrary): 用于读取和修改 JPEG 图像的 PPI 数据。
 - [Microsoft.IO.RecyclableMemoryStream](https://github.com/microsoft/Microsoft.IO.RecyclableMemoryStream): 用于配置高性能的池化内存流。
-- [SixLabors.ImageSharp](https://github.com/SixLabors/ImageSharp): 用于图重编码和 PPI 修改。
-- [Spectre.Console](https://github.com/spectreconsole/spectre.console): 用于命令行界面和参数解析。
+- [SixLabors.ImageSharp](https://github.com/SixLabors/ImageSharp): 当图片需要重编码时，用于图片重编码和 PPI 修改。
+- [Spectre.Console](https://github.com/spectreconsole/spectre.console): 用于控制台程序基本框架、参数输入解析和终端输出渲染。
 - [System.IO.Hashing](https://learn.microsoft.com/en-us/dotnet/api/system.io.hashing?view=net-10.0-pp): 用于在 PNG 图片元数据编辑方法中计算 CRC32 校验和。
 
 > [!Warning]
 > 
-> 程序的内存占用与逻辑处理器数量有关，因为并行处理的数量取决于逻辑处理器的个数。
+> 程序的内存占用与逻辑处理器数量有关，因为并行处理的线程数量取决于逻辑处理器的个数。
 > 
-> 目前的程序设定，图片格式为 JPEG 或 PNG 时，将直接编辑图片的元数据，保留图片的原始格式；对其他格式的图片，将重新编码为 PNG，同时编辑元数据。
+> 目前的程序设定，图片格式为 JPEG 或 PNG 时，将通过直接编辑图片二进制文件流实现 PPI 编辑，而不触发重新编码；对其他格式的图片，将尝试在重新编码为 PNG 的同时编辑其元数据。
 > 
-> 若您的设备有较多处理器，且您需要大量在设置 PPI 时选用重编码路径（即，图片编码既不是 JPEG 也不是 PNG），则可能导致内存占用大幅增加。
+> 若您的设备有较多处理器，且您需要在设置 PPI 时大量选用重编码路径（即，待处理的图片编码既不是 JPEG 也不是 PNG），则可能导致内存占用大幅增加。
 > 
 > 这是因为图片重编码需要大量额外的内存存储中间数据。
 
-## 版本历史
+### 版本历史
 
 | 版本   | 发布日期 | 更改日志                                                                                                                 |
 | ------ | -------- | ------------------------------------------------------------------------------------------------------------------------ |
