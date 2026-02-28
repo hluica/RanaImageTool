@@ -4,6 +4,7 @@ using System.Threading.Channels;
 using Microsoft.IO;
 
 using RanaImageTool.Models;
+using RanaImageTool.Utils;
 
 using Spectre.Console;
 
@@ -12,6 +13,9 @@ namespace RanaImageTool.Services;
 public class BatchRunner(RecyclableMemoryStreamManager streamManager) : IBatchRunner
 {
     private readonly RecyclableMemoryStreamManager _streamManager = streamManager;
+
+    private static readonly Color _processingAccentColor = ColorHelper.GetWindowsAccentColor(Color.Yellow);
+    private static readonly Color _finishedAccentColor = ColorHelper.GetWindowsAccentColor(Color.Green);
 
     private static readonly int _threadCount = Math.Max(1, Environment.ProcessorCount - 1); // 保留一个核心给非计算任务
     private static readonly int _channelCapacity = Math.Clamp(_threadCount + 2, 6, 48);
@@ -65,9 +69,19 @@ public class BatchRunner(RecyclableMemoryStreamManager streamManager) : IBatchRu
             .AutoClear(false)
             .Columns([
                 new TaskDescriptionColumn(),
-                new ProgressBarColumn(),
-                new PercentageColumn(),
-                new SpinnerColumn(),
+                new ProgressBarColumn
+                {
+                    CompletedStyle = new Style(_processingAccentColor),
+                    FinishedStyle = new Style(_finishedAccentColor)
+                },
+                new PercentageColumn
+                {
+                    CompletedStyle = new Style(_finishedAccentColor),
+                },
+                new SpinnerColumn
+                {
+                    Style = new Style(_processingAccentColor),
+                },
                 new RemainingTimeColumn
                 {
                     Style = new Style(Color.Yellow),
