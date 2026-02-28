@@ -27,6 +27,12 @@ RanaImageTool 是一个基于 .NET 10 的命令行工具，用于处理图片文
   - 非 JPEG 编码的图片将会被转换为 PNG 编码，扩展名亦将被纠正为 .png。
   - JPEG 编码的图片扩展名将被规范为 .jpg。
 
+> [!note]
+> 
+> **平台差异功能**
+> 
+> 在 Windows 平台上，本程序的进度条组件将可以跟随系统主题色而改变自身的颜色。
+
 ## 安装
 
 RanaImageTool 是一个 .NET 全局工具。您可以通过以下步骤安装：
@@ -112,7 +118,7 @@ RanaImageTool setppi -p "C:\Images"
 - [ExifLibNet](https://github.com/oozcitak/exiflibrary): 用于读取和修改 JPEG 图像的 PPI 数据。
 - [Microsoft.IO.RecyclableMemoryStream](https://github.com/microsoft/Microsoft.IO.RecyclableMemoryStream): 用于配置高性能的池化内存流。
 - [SixLabors.ImageSharp](https://github.com/SixLabors/ImageSharp): 当图片需要重编码时，用于图片重编码和 PPI 修改。
-- [Spectre.Console](https://github.com/spectreconsole/spectre.console): 用于控制台程序基本框架、参数输入解析和终端输出渲染。
+- [Spectre.Console](https://github.com/spectreconsole/spectre.console) 与 Spectre.Console.Cli: 用于控制台程序基本框架、参数输入解析和终端输出渲染。
 - [System.IO.Hashing](https://learn.microsoft.com/en-us/dotnet/api/system.io.hashing?view=net-10.0-pp): 用于在 PNG 图片元数据编辑方法中计算 CRC32 校验和。
 
 > [!Warning]
@@ -129,6 +135,7 @@ RanaImageTool setppi -p "C:\Images"
 
 | 版本   | 发布日期 | 更改日志                                                                                                                 |
 | ------ | -------- | ------------------------------------------------------------------------------------------------------------------------ |
+| v4.3.4 | 26-02-28 | 优化终端输出信息。                                                                                                       |
 | v4.3.3 | 26-02-28 | 优化 TUI 组件样式。                                                                                                      |
 | v4.3.2 | 26-02-23 | 继续优化 PNG 元数据编辑方法。                                                                                            |
 | v4.3.1 | 26-02-14 | 优化 PDF 元数据编辑方法。                                                                                                |

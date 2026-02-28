@@ -33,7 +33,7 @@ public class BatchRunner(RecyclableMemoryStreamManager streamManager) : IBatchRu
 
         if (!Directory.Exists(dir))
         {
-            AnsiConsole.MarkupLine($"[red][bold]Error![/] Directory not found: [underline]{Markup.Escape(dir)}[/][/]");
+            AnsiConsole.MarkupLine($"[red][[ERROR]][/] Directory not found: [red underline]{Markup.Escape(dir)}[/]");
             return 1;
         }
 
@@ -56,7 +56,7 @@ public class BatchRunner(RecyclableMemoryStreamManager streamManager) : IBatchRu
 
         if (files.Count == 0)
         {
-            AnsiConsole.MarkupLine("[yellow]No matching files found.[/]");
+            AnsiConsole.MarkupLine("[yellow][[WARNING]][/] No matching files found.");
             return 0;
         }
 
@@ -287,13 +287,13 @@ public class BatchRunner(RecyclableMemoryStreamManager streamManager) : IBatchRu
 
         if (errors.Count == 0)
         {
-            AnsiConsole.MarkupLine($"[green]Success![/] Processed {files.Count} files in time: [bold]{ts}[/].");
+            AnsiConsole.MarkupLine($"[green][[SUCCESS]][/] Processed [green bold]{files.Count}[/] files in time: [green bold]{ts}[/].");
             return 0;
         }
         else
         {
-            AnsiConsole.MarkupLine($"[yellow]Completed with {errors.Count} errors[/] in time: [bold]{ts}[/].");
-            AnsiConsole.Write(new Rule("[red]Failures[/]"));
+            AnsiConsole.MarkupLine($"[red][[ERROR]][/] Completed with [red bold]{errors.Count}[/] errors in time: [red bold]{ts}[/].");
+            AnsiConsole.Write(new Rule("[red]Failures[/]").LeftJustified());
             foreach (var (file, exception) in errors)
             {
                 AnsiConsole.MarkupLine($"[gray bold]File:[/] [underline]{Markup.Escape(Path.GetFileName(file))}[/]");
