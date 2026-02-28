@@ -11,7 +11,7 @@ public class WebpToPngCommand(IBatchRunner batchRunner, IImageService imageServi
     private readonly IBatchRunner _batchRunner = batchRunner;
     private readonly IImageService _imageService = imageService;
 
-    private readonly HashSet<string> _supportedExtensions = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly HashSet<string> _supportedExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         ".webp"
     };
