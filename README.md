@@ -35,20 +35,17 @@ RanaImageTool 是一个基于 .NET 10 的命令行工具，用于处理图片文
 
 ## 安装
 
-RanaImageTool 是一个 .NET 全局工具。您可以通过以下步骤安装：
-
-1. 确保已安装 .NET 10 SDK。
-2. 通过 `git clone`或其他方法将项目文件下载到本地。
-3. 在项目目录下运行以下命令：
-
+RanaImageTool 是一个 .NET 全局工具。获取软件包 `.nupkg` 文件后，可以通过以下命令安装：
 ```powershell
-# 打包工具
-dotnet pack
-
-# 安装工具
-dotnet tool install RanaImageTool --global --add-source ./nupkg --version *.*.*
-# 建议在安装时指定版本号（从 csproj 文件查询，或使用 /nupkg 文件夹中的任意可用包）。指定具体的版本号有助于确保所有文件均被更新。
+dotnet tool install RanaImageTool --global --add-source <Source_Path> [--version <Version>]
 ```
+其中 `<Source_Path>` 是包含 `.nupkg` 文件的目录路径（允许使用相对路径）；`<Version>` 是 `.nupkg` 文件名中列出的版本，当 `<Source_Path>` 目录内只有一个 `.nupkg` 文件时可以省略。
+
+获取 `.nupkg` 文件的方法：您可以从 Release 页面下载，或者手动构建：
+- 安装 .NET SDK；
+- Clone 存储库，进入仓库根目录；
+- 执行 `dotnet pack` 指令。
+- 生成的`.nupkg` 文件将存储在仓库的 `/nupkg` 目录下。
 
 ## 使用方法
 
