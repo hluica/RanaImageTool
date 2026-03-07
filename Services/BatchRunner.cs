@@ -14,9 +14,6 @@ public class BatchRunner(RecyclableMemoryStreamManager streamManager) : IBatchRu
 {
     private readonly RecyclableMemoryStreamManager _streamManager = streamManager;
 
-    private static readonly Color _processingAccentColor = ColorHelper.GetWindowsAccentColor(Color.Yellow);
-    private static readonly Color _finishedAccentColor = ColorHelper.GetWindowsAccentColor(Color.Green);
-
     private static readonly int _threadCount = Math.Max(1, Environment.ProcessorCount - 1); // 保留一个核心给非计算任务
     private static readonly int _channelCapacity = Math.Clamp(_threadCount + 2, 6, 48);
 
@@ -33,7 +30,7 @@ public class BatchRunner(RecyclableMemoryStreamManager streamManager) : IBatchRu
 
         if (!Directory.Exists(dir))
         {
-            AnsiConsole.MarkupLine($"[red][[ERROR]][/] Directory not found: [red underline]{Markup.Escape(dir)}[/]");
+            StdErr.MarkupLine($"[red][[ERROR]][/] Directory not found: [red underline]{Markup.Escape(dir)}[/]");
             return 1;
         }
 
@@ -56,7 +53,7 @@ public class BatchRunner(RecyclableMemoryStreamManager streamManager) : IBatchRu
 
         if (files.Count == 0)
         {
-            AnsiConsole.MarkupLine("[yellow][[WARNING]][/] No matching files found.");
+            StdErr.MarkupLine("[yellow][[WARNING]][/] No matching files found.");
             return 0;
         }
 
@@ -71,16 +68,16 @@ public class BatchRunner(RecyclableMemoryStreamManager streamManager) : IBatchRu
                 new TaskDescriptionColumn(),
                 new ProgressBarColumn
                 {
-                    CompletedStyle = new Style(_processingAccentColor),
-                    FinishedStyle = new Style(_finishedAccentColor)
+                    CompletedStyle = new Style(ColorHelper.ProcessingAccentColor),
+                    FinishedStyle = new Style(ColorHelper.FinishedAccentColor)
                 },
                 new PercentageColumn
                 {
-                    CompletedStyle = new Style(_finishedAccentColor),
+                    CompletedStyle = new Style(ColorHelper.FinishedAccentColor),
                 },
                 new SpinnerColumn
                 {
-                    Style = new Style(_processingAccentColor),
+                    Style = new Style(ColorHelper.ProcessingAccentColor),
                 },
                 new RemainingTimeColumn
                 {
@@ -292,13 +289,13 @@ public class BatchRunner(RecyclableMemoryStreamManager streamManager) : IBatchRu
         }
         else
         {
-            AnsiConsole.MarkupLine($"[red][[ERROR]][/] Completed with [red bold]{errors.Count}[/] errors in time: [red bold]{ts}[/].");
-            AnsiConsole.Write(new Rule("[red]Failures[/]").LeftJustified());
+            StdErr.MarkupLine($"[red][[ERROR]][/] Completed with [red bold]{errors.Count}[/] errors in time: [red bold]{ts}[/].");
+            StdErr.Write(new Rule("[red]Failures[/]").LeftJustified());
             foreach (var (file, exception) in errors)
             {
-                AnsiConsole.MarkupLine($"[gray bold]File:[/] [underline]{Markup.Escape(Path.GetFileName(file))}[/]");
-                AnsiConsole.WriteException(exception, ExceptionFormats.ShortenEverything);
-                AnsiConsole.WriteLine();
+                StdErr.MarkupLine($"[gray bold]File:[/] [underline]{Markup.Escape(Path.GetFileName(file))}[/]");
+                StdErr.WriteException(exception, ExceptionFormats.ShortenEverything);
+                StdErr.WriteLine();
             }
             return 1;
         }
