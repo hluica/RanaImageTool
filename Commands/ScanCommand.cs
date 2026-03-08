@@ -17,7 +17,7 @@ public class ScanCommand : Command<BaseSettings>
             return 1;
         }
 
-        AnsiConsole.MarkupLine($"[grey]Scanning: [/][blue underline]{Markup.Escape(dir)}[/]");
+        AnsiConsole.MarkupLine($"[grey][[INFO]][/] Scanning: [blue underline]{Markup.Escape(dir)}[/]");
 
         var enumerationOptions = new EnumerationOptions
         {

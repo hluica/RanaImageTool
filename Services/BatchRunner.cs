@@ -35,7 +35,7 @@ public class BatchRunner(RecyclableMemoryStreamManager streamManager) : IBatchRu
         }
 
         AnsiConsole.WriteLine();
-        AnsiConsole.MarkupLine($"[grey]Scanning: [/][blue underline]{Markup.Escape(dir)}[/]");
+        AnsiConsole.MarkupLine($"[grey][[INFO]][/] Scanning: [blue underline]{Markup.Escape(dir)}[/]");
 
         var directoryInfo = new DirectoryInfo(dir);
         var enumerationOptions = new EnumerationOptions
@@ -57,7 +57,7 @@ public class BatchRunner(RecyclableMemoryStreamManager streamManager) : IBatchRu
             return 0;
         }
 
-        AnsiConsole.MarkupLine($"Found [green]{files.Count}[/] files.");
+        AnsiConsole.MarkupLine($"[grey][[INFO]][/] Found [green]{files.Count}[/] files.");
 
         var errors = new List<(string file, Exception exception)>();
 
