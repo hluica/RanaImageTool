@@ -13,7 +13,7 @@ public class ScanCommand : Command<BaseSettings>
         string dir = settings.Path ?? Directory.GetCurrentDirectory();
         if (!Directory.Exists(dir))
         {
-            StdErr.MarkupLine($"[red][[ERROR]][/] Directory not found: [red underline]{Markup.Escape(dir)}[/]");
+            StdErr.Console.MarkupLine($"[red][[ERROR]][/] Directory not found: [red underline]{Markup.Escape(dir)}[/]");
             return 1;
         }
 

@@ -57,8 +57,8 @@ public static class Program
 
             _ = config.SetExceptionHandler((ex, _) =>
             {
-                StdErr.MarkupLine("[red][[ERROR]][/] [white]Unexpected Error Happened:[/]");
-                StdErr.WriteException(ex, ExceptionFormats.ShortenEverything);
+                StdErr.Console.MarkupLine("[red][[ERROR]][/] [white]Unexpected Error Happened:[/]");
+                StdErr.Console.WriteException(ex, ExceptionFormats.ShortenEverything);
 
                 // -1: exceptions handled by framework automatically; 1: exceptions handled in program manually.
                 return -1;
@@ -70,8 +70,8 @@ public static class Program
 
     private static string GetAppVersion()
     {
-        var assembly = Assembly.GetExecutingAssembly();
-        string? version = assembly
+        string? version = Assembly
+            .GetExecutingAssembly()
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
             .InformationalVersion;
         return !string.IsNullOrWhiteSpace(version) ? version : "unknown";
