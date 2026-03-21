@@ -1,5 +1,9 @@
 ﻿# RanaImageTool
 
+![GitHub Release](https://img.shields.io/github/v/release/hluica/RanaImageTool)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/hluica/RanaImageTool)
+
+
 RanaImageTool 是一个基于 .NET 10 的命令行工具，用于处理图片文件。它支持以下功能：
 
 - **扫描目录并计数图片文件**
