@@ -1,6 +1,6 @@
 ﻿# RanaImageTool
 
-![GitHub Release](https://img.shields.io/github/v/release/hluica/RanaImageTool)
+[![GitHub Release](https://img.shields.io/github/v/release/hluica/RanaImageTool)](https://github.com/hluica/RanaImageTool/releases/latest)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/hluica/RanaImageTool)
 
 
