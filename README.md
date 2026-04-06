@@ -1,8 +1,9 @@
 ﻿# RanaImageTool
 
+[![.NET 10.0](https://img.shields.io/badge/.NET-10.0-512BD4)](https://dotnet.microsoft.com/en-us/download/dotnet/10.0)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![GitHub Release](https://img.shields.io/github/v/release/hluica/RanaImageTool)](https://github.com/hluica/RanaImageTool/releases/latest)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/hluica/RanaImageTool)
-
 
 RanaImageTool 是一个基于 .NET 10 的命令行工具，用于处理图片文件。它支持以下功能：
 
