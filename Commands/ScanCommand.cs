@@ -8,7 +8,7 @@ namespace RanaImageTool.Commands;
 
 public class ScanCommand : Command<BaseSettings>
 {
-    public override int Execute(CommandContext context, BaseSettings settings, CancellationToken cancellationToken)
+    protected override int Execute(CommandContext context, BaseSettings settings, CancellationToken cancellationToken)
     {
         string dir = settings.Path ?? Directory.GetCurrentDirectory();
         if (!Directory.Exists(dir))

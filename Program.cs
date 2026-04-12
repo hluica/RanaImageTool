@@ -44,16 +44,16 @@ public static class Program
 
             // 注册命令
             _ = config.AddCommand<WebpToPngCommand>("webp")
-                .WithDescription("将 WebP 文件转换为 PNG 文件，并删除原始文件。");
+                .WithDescription("Convert WebP files to PNG format, and delete the original files. ");
 
             _ = config.AddCommand<SetPpiCommand>("setppi")
-                .WithDescription("为 JPEG/PNG 文件设置 PPI。同时转换未预期的编码格式");
+                .WithDescription("Set PPI for JPEG/PNG files, and convert unexpected encoding formats. ");
 
             _ = config.AddCommand<JpgToPngCommand>("convert")
-                .WithDescription("将 JPEG 文件转换为 PNG 文件，并删除原始文件。");
+                .WithDescription("Convert JPEG files to PNG format, and delete the original files.");
 
             _ = config.AddCommand<ScanCommand>("scan")
-                .WithDescription("扫描目录并计数图片文件。");
+                .WithDescription("Scan directories and count image files. ");
 
             _ = config.SetExceptionHandler((ex, _) =>
             {
@@ -74,6 +74,6 @@ public static class Program
             .GetExecutingAssembly()
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
             .InformationalVersion;
-        return !string.IsNullOrWhiteSpace(version) ? version : "unknown";
+        return string.IsNullOrWhiteSpace(version) ? "unknown" : version;
     }
 }

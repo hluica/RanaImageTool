@@ -110,7 +110,7 @@ public class BatchRunner(RecyclableMemoryStreamManager streamManager) : IBatchRu
                 var resultChannel = Channel.CreateUnbounded<BatchResult>(
                     new UnboundedChannelOptions
                     {
-                        SingleWriter = true,
+                        SingleWriter = false,
                         SingleReader = true
                     });
 
@@ -211,7 +211,6 @@ public class BatchRunner(RecyclableMemoryStreamManager streamManager) : IBatchRu
                         RecyclableMemoryStream? stream = null;
                         try
                         {
-                            // 使用 RecyclableMemoryStream 替代 new MemoryStream()
                             stream = _streamManager.GetStream("ReadFromFileStream", file.Size);
 
                             // 异步读取文件到内存

@@ -95,6 +95,20 @@ RanaImageTool [command] [options]
 RanaImageTool scan -p "C:\Images"
 ```
 
+示例输出（不包括所有样式）：
+
+```
+[INFO] Scanning: C:\Images
+
+  Format   Count
+──────────────────
+  JPEG       824
+  PNG        156
+  WebP      2225
+──────────────────
+  Total     3205
+```
+
 #### 将 WebP 转换为 PNG
 
 ```powershell
@@ -113,7 +127,7 @@ RanaImageTool convert -p "C:\Images"
 # 固定值模式，设置 PPI 为 300
 RanaImageTool setppi -p "C:\Images" --val 300
 
-# 固定值模式，缺省设置为 144
+# 固定值模式，缺省设置 PPI 为 144
 RanaImageTool setppi -p "C:\Images" --val
 
 # 线性模式
@@ -137,6 +151,7 @@ RanaImageTool setppi -p "C:\Images"
 
 | 版本   | 发布日期 | 更改日志                                                                                                                 |
 | ------ | -------- | ------------------------------------------------------------------------------------------------------------------------ |
+| v4.3.8 | 26-04-12 | 修复批处理流水线中潜在的并发错误（ChannelOptions配置错误）；更新依赖并更新CommandExecute方法签名；为readme提供示例输出。 |
 | v4.3.7 | 26-04-04 | 优化 AnsiConsoleExtension 类。                                                                                           |
 | v4.3.6 | 26-03-09 | 优化错误信息输出                                                                                                         |
 | v4.3.5 | 26-03-07 | 优化错误处理和终端输出信息。                                                                                             |

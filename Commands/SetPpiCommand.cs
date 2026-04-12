@@ -18,7 +18,7 @@ public class SetPpiCommand(IBatchRunner batchRunner, IImageService imageService)
         ".png",
     };
 
-    public override async Task<int> ExecuteAsync(CommandContext context, PpiSettings settings, CancellationToken cancellationToken)
+    protected override async Task<int> ExecuteAsync(CommandContext context, PpiSettings settings, CancellationToken cancellationToken)
     {
         int effectivePpi = settings.PpiValue switch
         {

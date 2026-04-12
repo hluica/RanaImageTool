@@ -16,7 +16,7 @@ public class WebpToPngCommand(IBatchRunner batchRunner, IImageService imageServi
         ".webp"
     };
 
-    public override async Task<int> ExecuteAsync(CommandContext context, BaseSettings settings, CancellationToken cancellationToken)
+    protected override async Task<int> ExecuteAsync(CommandContext context, BaseSettings settings, CancellationToken cancellationToken)
         => await _batchRunner.RunBatchAsync(
             settings.Path,
             _supportedExtensions,

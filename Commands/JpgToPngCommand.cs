@@ -17,7 +17,7 @@ public class JpgToPngCommand(IBatchRunner batchRunner, IImageService imageServic
         ".jpeg",
     };
 
-    public override async Task<int> ExecuteAsync(CommandContext context, BaseSettings settings, CancellationToken cancellationToken)
+    protected override async Task<int> ExecuteAsync(CommandContext context, BaseSettings settings, CancellationToken cancellationToken)
         => await _batchRunner.RunBatchAsync(
             settings.Path,
             _supportedExtensions,
